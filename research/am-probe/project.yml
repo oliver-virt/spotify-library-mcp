@@ -1,0 +1,18 @@
+name: SortedProbe
+options:
+  bundleIdPrefix: com.olivervirt
+targets:
+  SortedProbe:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [SortedProbe]
+    info:
+      path: SortedProbe/Info.plist
+      properties:
+        NSAppleMusicUsageDescription: "SortedProbe reads your music library to test organisation features."
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.olivervirt.sortedprobe
+        CODE_SIGNING_ALLOWED: "NO"
