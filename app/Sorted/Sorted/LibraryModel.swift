@@ -11,6 +11,7 @@ struct Track: Identifiable, Hashable {
     let skipCount: Int
     let added: Date?
     let lastPlayed: Date?
+    let year: Int
     let song: Song
     var key: String { "\(artist.lowercased())|\(Self.normTitle(title))" }
     static func normTitle(_ t: String) -> String {
@@ -28,7 +29,7 @@ struct Bucket: Identifiable {
     var tracks: [Track]
     var enabled = true
     var kind: Kind
-    enum Kind { case genre, mood, rediscover, onRepeat, duplicates }
+    enum Kind { case genre, mood, decade, favorites, rediscover, onRepeat, duplicates }
 }
 
 struct Report {
@@ -94,6 +95,8 @@ final class LibraryModel: ObservableObject {
                         skipCount: m?.skipCount ?? 0,
                         added: m?.dateAdded ?? s.libraryAddedDate,
                         lastPlayed: m?.lastPlayedDate ?? s.lastPlayedDate,
+                        year: (m?.releaseDate).map { Calendar.current.component(.year, from: $0) }
+                              ?? (s.releaseDate).map { Calendar.current.component(.year, from: $0) } ?? 0,
                         song: s))
                 }
                 scanStatus = "Reading your library… \(collected.count) songs"
@@ -155,6 +158,16 @@ final class LibraryModel: ObservableObject {
         }
         let rest = tracks.filter { !bigNames.contains($0.genre) }
         if rest.count >= 8 { out.append(Bucket(name: "Mixed Bag", emoji: "🎲", tracks: rest, kind: .genre)) }
+        // Decades: iTunes used to auto-create these; Apple removed them. ≥12 songs per decade.
+        var byDecade: [Int: [Track]] = [:]
+        for t in tracks where t.year >= 1950 { byDecade[(t.year / 10) * 10, default: []].append(t) }
+        for (d, ts) in byDecade.sorted(by: { $0.key < $1.key }) where ts.count >= 12 {
+            out.append(Bucket(name: "\(d % 100)s", emoji: "📼", tracks: ts, kind: .decade))
+        }
+        // Real Favorites: the songs the play data says you love (favorites-as-junk-drawer fix)
+        let loved = tracks.filter { $0.playCount >= 5 && $0.skipCount <= $0.playCount / 3 }
+            .sorted { $0.playCount > $1.playCount }.prefix(75)
+        if loved.count >= 10 { out.append(Bucket(name: "Real Favorites", emoji: "❤️", tracks: Array(loved), kind: .favorites)) }
         let yearAgo = Calendar.current.date(byAdding: .year, value: -1, to: .now)!
         var perArtist: [String: Int] = [:]
         var forgotten: [Track] = []
