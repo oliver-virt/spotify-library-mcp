@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { z } from "zod";
 import { spotify, searchBudget } from "./spotify.js";
+import * as A from "./analysis.js";
 
 export function createServer() {
 const server = new McpServer({ name: "spotify-library", version: "1.1.0" }, { instructions: `Spotify Web API limits (2026, new apps) baked into this server:
@@ -46,6 +47,16 @@ tool("get_api_limits", "What this Spotify app can and cannot do (endpoints remov
   pacing: "150ms min gap. /search: ~1000 calls/day → 429 with retry-after ≈ 21h (per app). Client throws on bans > 60s.",
   playlists: "no delete; unfollow only",
 }));
+// --- analysis (computed server-side, compact output) ---
+tool("summarize_playlist", "Stats for one playlist: runtime, top artists, decades, duplicates, over-representation.", { playlist_id: z.string() }, ({ playlist_id }) => A.summarizePlaylist(playlist_id));
+tool("summarize_library", "Whole-library health: liked songs in no playlist, stale/empty playlists, cross-playlist overlaps, per-playlist counts, liked-songs stats. Use before any reorganisation.", {}, () => A.summarizeLibrary());
+tool("find_in_playlists", "Which of the user's playlists contain a track (by name/artist substring, id, or uri); also whether it is Liked.", { query: z.string() }, ({ query }) => A.findInPlaylists(query));
+tool("dedupe_report", "Duplicate tracks (same artist + title, ignoring remaster/edit suffixes) inside each playlist, with ids to remove.", {}, () => A.dedupeReport());
+tool("playlist_diff", "Tracks only in A, only in B, and shared count.", { playlist_a: z.string(), playlist_b: z.string() }, ({ playlist_a, playlist_b }) => A.playlistDiff(playlist_a, playlist_b));
+tool("snapshot_library", "Save a full snapshot of all playlists + liked songs to disk (backup; enables changes_since).", { label: z.string().optional() }, ({ label }) => A.snapshotLibrary(label));
+tool("list_snapshots", "List saved snapshots.", {}, async () => ({ snapshots: A.listSnapshots() }));
+tool("changes_since", "What changed since a snapshot (default: latest): playlists created/deleted/renamed, tracks added/removed per playlist, likes added/removed.", { snapshot: z.string().optional() }, ({ snapshot }) => A.changesSince(snapshot));
+tool("rediscover", "Liked songs from years ago that no longer appear in top tracks or recent plays — forgotten favourites, spread across artists.", { min_years_ago: z.number().min(0).default(3), limit: z.number().int().min(1).max(200).default(50) }, ({ min_years_ago, limit }) => A.rediscover({ minYearsAgo: min_years_ago, limit }));
 tool("get_saved_tracks", "All tracks the user has Liked.", {}, () => spotify.savedTracks());
 tool("search", "Search Spotify.", { query: z.string(), type: z.enum(["track", "artist", "album", "playlist"]).default("track"), limit: z.number().int().min(1).max(50).default(10) },
   ({ query, type, limit }) => spotify.search(query, type, limit));

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Tiny CLI over the same client: `spot <command> [json-args]`
 import { spotify } from "../src/spotify.js";
+import * as A from "../src/analysis.js";
 
 const [cmd, ...rest] = process.argv.slice(2);
 const commands = {
@@ -19,6 +20,13 @@ const commands = {
   top: (range, limit) => spotify.topTracks(range, limit && Number(limit)),
   "top-artists": (range, limit) => spotify.topArtists(range, limit && Number(limit)),
   recent: (limit) => spotify.recentlyPlayed(limit && Number(limit)),
+  summary: (id) => (id ? A.summarizePlaylist(id) : A.summarizeLibrary()),
+  find: (q) => A.findInPlaylists(q),
+  dupes: () => A.dedupeReport(),
+  diff: (a, b) => A.playlistDiff(a, b),
+  snapshot: (label) => A.snapshotLibrary(label),
+  changes: (file) => A.changesSince(file),
+  rediscover: (years, limit) => A.rediscover({ minYearsAgo: years && Number(years), limit: limit && Number(limit) }),
 };
 if (!commands[cmd]) {
   console.error("Usage: spot <" + Object.keys(commands).join("|") + "> [args]");

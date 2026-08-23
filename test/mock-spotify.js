@@ -14,7 +14,7 @@ export function start(port = 0) {
     searchStatus: null,
     libraryCalls: [],
   };
-  const mkTrack = (n) => ({ id: `t${n}`, uri: `spotify:track:t${n}`, name: `Track ${n}`, duration_ms: 1000 * n, artists: [{ name: `Artist ${n}` }], album: { name: `Album ${n}` } });
+  const mkTrack = (n) => ({ id: `t${n}`, uri: `spotify:track:t${n}`, name: `Track ${n}`, duration_ms: 1000 * n, artists: [{ name: `Artist ${n}` }], album: { name: `Album ${n}`, release_date: `${1970 + (n * 7) % 56}-01-01` } });
   const addPl = (id, name, ids) => state.playlists.set(id, { id, name, description: "", public: false, collaborative: false, owner: state.me, snapshot_id: "s1", external_urls: { spotify: `https://open.spotify.com/playlist/${id}` }, items: ids.map((n) => ({ added_at: "2024-01-01T00:00:00Z", item: mkTrack(n) })) });
   addPl("p1", "מחנס", [1, 2, 3]);
   addPl("p2", "Workout", [3, 4]);

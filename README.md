@@ -28,11 +28,30 @@ node bin/spot.js rename <id> "New name"
 node bin/spot.js merge '{"sourceIds":["a","b"],"newName":"Merged","deleteSources":true}'
 node bin/spot.js delete <id>
 node bin/spot.js top short_term 20
+node bin/spot.js summary            # whole library
+node bin/spot.js summary <id>       # one playlist
+node bin/spot.js find "Sultans"     # which playlists contain it
+node bin/spot.js dupes
+node bin/spot.js diff <a> <b>
+node bin/spot.js snapshot weekly && node bin/spot.js changes
+node bin/spot.js rediscover 4 50
 ```
 
 ## Tools
 
-list_playlists, get_playlist, create_playlist, update_playlist, add_tracks, remove_tracks, delete_playlist, merge_playlists, get_saved_tracks, search, get_top_tracks, get_top_artists, get_recently_played
+**Playlists** — list_playlists, get_playlist, create_playlist, update_playlist, add_tracks, remove_tracks, delete_playlist, merge_playlists
+**Library** — get_saved_tracks, save_tracks, remove_saved_tracks, get_top_tracks, get_top_artists, get_recently_played
+**Search** — search, find_track (artist-verified), get_search_budget, get_api_limits
+**Analysis** (computed server-side, compact output — things Spotify users have asked for for a decade):
+- `summarize_library` — liked songs in no playlist, stale/empty playlists, cross-playlist overlaps, decades, dupes
+- `summarize_playlist` — runtime, top artists, decades, duplicates, over-representation
+- `find_in_playlists` — "which of my playlists has this song?"
+- `dedupe_report` — same artist+title ignoring remaster/live/edit suffixes, with ids to remove
+- `playlist_diff` — only-in-A / only-in-B / shared
+- `snapshot_library` · `list_snapshots` · `changes_since` — backup + "what changed since last week" (renames, adds, removes, likes)
+- `rediscover` — liked years ago, absent from top tracks and recent plays; spread across artists
+
+On my library these found: 233 liked songs in no playlist, 210 near-duplicates inside playlists, 1,113 forgotten likes from 2018–2021.
 
 ## Library scripts (how I reorganised 40 playlists → 9)
 
