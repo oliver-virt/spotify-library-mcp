@@ -121,8 +121,26 @@ struct ReportCard: View {
 
 struct PlanView: View {
     @EnvironmentObject var model: LibraryModel
+    @EnvironmentObject var ent: Entitlements
+    @State private var showPaywall = false
     var body: some View {
         List {
+            if MoodClassifier.isAvailable && !model.moodsAdded {
+                Section {
+                    if let p = model.moodProgress {
+                        HStack {
+                            ProgressView(value: Double(p.done), total: Double(max(p.total, 1)))
+                            Text("\(p.done)/\(p.total) artists").font(.caption).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Button { Task { await model.addMoodBuckets() } } label: {
+                            Label("Add mood playlists", systemImage: "sparkles")
+                        }
+                    }
+                } footer: {
+                    Text("Runs entirely on this phone with Apple Intelligence. Artists the model doesn't truly know are left out rather than guessed.")
+                }
+            }
             Section(footer: Text("Sorted only creates new playlists — it never touches your existing ones. The 🗑️ playlist is a review queue: open it in Music and delete what you don't want.")) {
                 ForEach($model.buckets) { $b in
                     HStack {
@@ -139,8 +157,11 @@ struct PlanView: View {
             }
         }
         .navigationTitle("The plan")
+        .sheet(isPresented: $showPaywall) { PaywallView { Task { await model.apply() } } }
         .safeAreaInset(edge: .bottom) {
-            Button { Task { await model.apply() } } label: {
+            Button {
+                if ent.unlocked { Task { await model.apply() } } else { showPaywall = true }
+            } label: {
                 Text("Create \(model.buckets.filter(\.enabled).count) playlists")
                     .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
             }

@@ -3,9 +3,10 @@ import SwiftUI
 @main
 struct SortedApp: App {
     @StateObject var model = LibraryModel()
+    @StateObject var ent = Entitlements()
     var body: some Scene {
         WindowGroup {
-            RootView().environmentObject(model)
+            RootView().environmentObject(model).environmentObject(ent)
         }
     }
 }

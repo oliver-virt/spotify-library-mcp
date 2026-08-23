@@ -28,7 +28,7 @@ struct Bucket: Identifiable {
     var tracks: [Track]
     var enabled = true
     var kind: Kind
-    enum Kind { case genre, rediscover, onRepeat, duplicates }
+    enum Kind { case genre, mood, rediscover, onRepeat, duplicates }
 }
 
 struct Report {
@@ -54,6 +54,8 @@ final class LibraryModel: ObservableObject {
     @Published var buckets: [Bucket] = []
     @Published var applyLog: [String] = []
     @Published var errorText: String?
+    @Published var moodProgress: (done: Int, total: Int)?
+    @Published var moodsAdded = false
 
     func scan() async {
         stage = .scanning
@@ -167,6 +169,28 @@ final class LibraryModel: ObservableObject {
         for t in tracks { if seen.contains(t.key) { dupes.append(t) } else { seen.insert(t.key) } }
         if !dupes.isEmpty { out.append(Bucket(name: "Review & Delete", emoji: "🗑️", tracks: dupes, kind: .duplicates)) }
         buckets = out
+    }
+
+    func addMoodBuckets() async {
+        guard !moodsAdded else { return }
+        // one entry per artist, dominant genre as hint
+        var genreByArtist: [String: [String: Int]] = [:]
+        for t in tracks { genreByArtist[t.artist, default: [:]][t.genre, default: 0] += 1 }
+        let artists = genreByArtist.map { (name: $0.key, genre: $0.value.max { $0.value < $1.value }?.key ?? "") }
+        moodProgress = (0, artists.count)
+        let map = await MoodClassifier.classify(artists: artists) { [weak self] done, total in
+            await MainActor.run { self?.moodProgress = (done, total) }
+        }
+        var byMood: [Mood: [Track]] = [:]
+        for t in tracks { if let m = map[t.artist] { byMood[m, default: []].append(t) } }
+        var newBuckets: [Bucket] = []
+        for (mood, ts) in byMood.sorted(by: { $0.value.count > $1.value.count }) where ts.count >= 5 {
+            newBuckets.append(Bucket(name: mood.rawValue, emoji: mood.emoji, tracks: ts, kind: .mood))
+        }
+        let insertAt = buckets.firstIndex { $0.kind != .genre && $0.kind != .mood } ?? buckets.endIndex
+        buckets.insert(contentsOf: newBuckets, at: insertAt)
+        moodProgress = nil
+        moodsAdded = true
     }
 
     func apply() async {

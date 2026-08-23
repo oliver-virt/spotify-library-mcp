@@ -10,10 +10,14 @@
 		05551D10649EB5931A56B7CD /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DDB38B51AEFC9F55F0DF82 /* Views.swift */; };
 		3E37D83FD9EEA1BC873ADE9F /* LibraryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13439C1D8D5861296DC82E4 /* LibraryModel.swift */; };
 		65959D353C24A09927D43EE8 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46FBB40D3C54648C70C5C7C /* App.swift */; };
+		C2D573EA760D3D21A279AE14 /* Paywall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8C1D49889BEC4C0A08A8A2 /* Paywall.swift */; };
+		D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238946DFD6280AD363D02F94 /* MoodClassifier.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		1104A5CAB24B0BCB3D66C940 /* Sorted.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Sorted.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1E8C1D49889BEC4C0A08A8A2 /* Paywall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Paywall.swift; sourceTree = "<group>"; };
+		238946DFD6280AD363D02F94 /* MoodClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodClassifier.swift; sourceTree = "<group>"; };
 		B405BEDF44C30C0AFA24792F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C46FBB40D3C54648C70C5C7C /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		D13439C1D8D5861296DC82E4 /* LibraryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryModel.swift; sourceTree = "<group>"; };
@@ -43,6 +47,8 @@
 				C46FBB40D3C54648C70C5C7C /* App.swift */,
 				B405BEDF44C30C0AFA24792F /* Info.plist */,
 				D13439C1D8D5861296DC82E4 /* LibraryModel.swift */,
+				238946DFD6280AD363D02F94 /* MoodClassifier.swift */,
+				1E8C1D49889BEC4C0A08A8A2 /* Paywall.swift */,
 				F1DDB38B51AEFC9F55F0DF82 /* Views.swift */,
 			);
 			path = Sorted;
@@ -109,6 +115,8 @@
 			files = (
 				65959D353C24A09927D43EE8 /* App.swift in Sources */,
 				3E37D83FD9EEA1BC873ADE9F /* LibraryModel.swift in Sources */,
+				D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */,
+				C2D573EA760D3D21A279AE14 /* Paywall.swift in Sources */,
 				05551D10649EB5931A56B7CD /* Views.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
