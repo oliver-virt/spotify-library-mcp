@@ -1,0 +1,21 @@
+name: Sorted
+options:
+  bundleIdPrefix: com.olivervirt
+targets:
+  Sorted:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [Sorted]
+    info:
+      path: Sorted/Info.plist
+      properties:
+        NSAppleMusicUsageDescription: "Sorted reads your music library to organise it into playlists. Nothing leaves your device."
+        UILaunchScreen: {}
+        CFBundleDisplayName: Sorted
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.olivervirt.sorted
+        DEVELOPMENT_TEAM: NLP9537CF4
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
