@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "spotify-library": {
+      "command": "node",
+      "args": ["src/server.js"]
+    }
+  }
+}

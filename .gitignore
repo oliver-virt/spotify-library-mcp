@@ -1,0 +1,7 @@
+.env
+.search-budget.json
+.tokens.json
+backups/
+node_modules/
+library.json
+.DS_Store
