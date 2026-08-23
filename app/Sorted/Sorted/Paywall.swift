@@ -3,7 +3,7 @@ import SwiftUI
 // MVP paywall. Purchase is a placeholder until the App Store product exists (StoreKit 2 goes here).
 // The "beta" link bypasses it on purpose — remove before App Store submission.
 final class Entitlements: ObservableObject {
-    @AppStorage("sorted.unlocked") var unlocked = false
+    @AppStorage("dacapo.unlocked") var unlocked = false
 }
 
 struct PaywallView: View {
@@ -14,7 +14,7 @@ struct PaywallView: View {
         VStack(spacing: 18) {
             Capsule().fill(.quaternary).frame(width: 36, height: 5).padding(.top, 8)
             Text("🗂️").font(.system(size: 56)).padding(.top, 8)
-            Text("Unlock Sorted").font(.system(.title, design: .rounded).weight(.heavy))
+            Text("Unlock Da Capo").font(.system(.title, design: .rounded).weight(.heavy))
             VStack(alignment: .leading, spacing: 10) {
                 bullet("Create every playlist in your plan")
                 bullet("Mood playlists, computed on your phone")
@@ -24,7 +24,7 @@ struct PaywallView: View {
             .padding(.horizontal, 28)
             Spacer()
             Button {
-                // TODO: StoreKit 2 purchase of com.olivervirt.sorted.unlock
+                // TODO: StoreKit 2 purchase of com.olivervirt.dacapo.unlock
                 ent.unlocked = true
                 dismiss(); onUnlocked()
             } label: {

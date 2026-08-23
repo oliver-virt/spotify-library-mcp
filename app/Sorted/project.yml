@@ -10,12 +10,12 @@ targets:
     info:
       path: Sorted/Info.plist
       properties:
-        NSAppleMusicUsageDescription: "Sorted reads your music library to organise it into playlists. Nothing leaves your device."
+        NSAppleMusicUsageDescription: "Da Capo reads your music library to organise it into playlists. Nothing leaves your device."
         UILaunchScreen: {}
-        CFBundleDisplayName: Sorted
+        CFBundleDisplayName: Da Capo
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.olivervirt.sorted
+        PRODUCT_BUNDLE_IDENTIFIER: com.olivervirt.dacapo
         DEVELOPMENT_TEAM: NLP9537CF4
         CODE_SIGN_STYLE: Automatic
         INFOPLIST_KEY_UIUserInterfaceStyle: Automatic

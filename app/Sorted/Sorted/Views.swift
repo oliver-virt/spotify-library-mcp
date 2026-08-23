@@ -8,7 +8,7 @@ struct ScanView: View {
         VStack(spacing: 24) {
             Spacer()
             Text("🗂️").font(.system(size: 72))
-            Text("Sorted").font(.system(size: 40, weight: .heavy, design: .rounded))
+            Text("Da Capo").font(.system(size: 40, weight: .heavy, design: .rounded))
             Text("Your music library, finally organised.\nNothing leaves your phone.")
                 .multilineTextAlignment(.center).foregroundStyle(.secondary)
             if model.stage == .scanning {
@@ -100,7 +100,7 @@ struct ReportCard: View {
                 }
             }
             if forExport {
-                Text("sorted — organise your Apple Music library").font(.caption2).foregroundStyle(.secondary)
+                Text("Da Capo — play your library again · dacapo.fm").font(.caption2).foregroundStyle(.secondary)
             }
         }
         .padding(20)
@@ -182,7 +182,7 @@ struct ApplyView: View {
                 Text("Building your playlists…").foregroundStyle(.secondary)
             } else {
                 Text("🎉").font(.system(size: 64))
-                Text("Sorted.").font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                Text("Da capo. 🎶").font(.system(.largeTitle, design: .rounded).weight(.heavy))
             }
             List(model.applyLog, id: \.self) { Text($0).font(.subheadline) }
                 .listStyle(.plain).frame(maxHeight: 300)

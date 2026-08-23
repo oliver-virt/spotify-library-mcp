@@ -200,7 +200,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.olivervirt.sorted;
+				PRODUCT_BUNDLE_IDENTIFIER = com.olivervirt.dacapo;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -275,7 +275,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.olivervirt.sorted;
+				PRODUCT_BUNDLE_IDENTIFIER = com.olivervirt.dacapo;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

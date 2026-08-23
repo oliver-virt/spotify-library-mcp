@@ -15,4 +15,5 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.olivervirt.sortedprobe
-        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: NLP9537CF4
+        CODE_SIGN_STYLE: Automatic

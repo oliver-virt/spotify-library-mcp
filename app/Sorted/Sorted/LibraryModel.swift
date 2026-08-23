@@ -63,7 +63,7 @@ final class LibraryModel: ObservableObject {
         errorText = nil
         let auth = await MusicAuthorization.request()
         guard auth == .authorized else {
-            errorText = "Sorted needs access to your library. Enable it in Settings → Privacy → Media & Apple Music."
+            errorText = "Da Capo needs access to your library. Enable it in Settings → Privacy → Media & Apple Music."
             stage = .welcome; return
         }
         scanStatus = "Reading your library…"
@@ -214,8 +214,8 @@ final class LibraryModel: ObservableObject {
             let name = "\(b.emoji) \(b.name)"
             do {
                 let desc = b.kind == .duplicates
-                    ? "Duplicates found by Sorted — review and delete in Music"
-                    : "Organised by Sorted"
+                    ? "Duplicates found by Da Capo — review and delete in Music"
+                    : "Organised by Da Capo"
                 let pl = try await MusicLibrary.shared.createPlaylist(name: name, description: desc)
                 var added = 0
                 for t in b.tracks {

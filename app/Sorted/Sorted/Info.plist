@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Sorted</string>
+	<string>Da Capo</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -21,7 +21,7 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NSAppleMusicUsageDescription</key>
-	<string>Sorted reads your music library to organise it into playlists. Nothing leaves your device.</string>
+	<string>Da Capo reads your music library to organise it into playlists. Nothing leaves your device.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>
