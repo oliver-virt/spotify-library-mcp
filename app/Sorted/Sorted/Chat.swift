@@ -37,7 +37,50 @@ final class ChatModel: ObservableObject {
 
     func cap(_ t: String) { messages.append(ChatMsg(kind: .cap(t))) }
 
+    /// Typed input: on-device model routes to a tool; tools stay deterministic.
+    private func freeText(_ text: String, lib: LibraryModel) async {
+        messages.append(ChatMsg(kind: .user(text)))
+        guard MoodClassifier.isAvailable else {
+            cap("Not my counter — I do five things: sort, playlists, duplicates, forgotten songs, and your listening report. Pick one below.")
+            chips = Self.homeChips
+            return
+        }
+        thinking = true
+        let top = lib.report.topArtists.first
+        let song = lib.report.topSongs.first
+        let ctx = "\(lib.report.total) songs, \(lib.report.artists) artists, \(lib.report.duplicates) duplicates, \(lib.report.neverPlayed) never played, top artist \(top?.name ?? "unknown") (\(top?.count ?? 0) songs), top song \(song?.name ?? "unknown") played \(song?.count ?? 0) times, health \(lib.report.health)/100."
+        let out = await MoodClassifier.interpret(text, context: ctx)
+        thinking = false
+        guard let out else {
+            cap("Not my counter — try one of the chips below.")
+            chips = Self.homeChips
+            return
+        }
+        cap(out.reply)
+        switch out.intent {
+        case "sort":
+            messages.append(ChatMsg(kind: .plan))
+            chips = ["Add mood playlists", "How do I listen?"]
+        case "duplicates":
+            if lib.report.duplicates > 0 { messages.append(ChatMsg(kind: .dupes)) }
+            chips = Self.homeChips.filter { $0 != "Find duplicates" }
+        case "rediscover":
+            let r = lib.rediscoverList()
+            if !r.isEmpty {
+                messages.append(ChatMsg(kind: .rediscover(Array(r.prefix(6)))))
+                chips = ["Make it a playlist", "Sort my library"]
+            } else { chips = Self.homeChips }
+        case "report":
+            messages.append(ChatMsg(kind: .report))
+            chips = Self.homeChips.filter { $0 != "How do I listen?" }
+        default:
+            chips = Self.homeChips
+        }
+    }
+
     func run(_ intent: String, lib: LibraryModel) async {
+        let known = Self.homeChips + ["Make it a playlist", "Add mood playlists"]
+        guard known.contains(intent) else { await freeText(intent, lib: lib); return }
         messages.append(ChatMsg(kind: .user(intent.lowercased())))
         thinking = true
         try? await Task.sleep(for: .milliseconds(500))
@@ -81,9 +124,7 @@ final class ChatModel: ObservableObject {
             } else { cap("Mood sorting needs Apple Intelligence on this phone. The rest of the plan works without it.") }
             chips = ["How do I listen?"]
         default:
-            messages.append(ChatMsg(kind: .user(intent)))
-            cap("Not my counter — I do five things: sort, playlists, duplicates, forgotten songs, and your listening report. Pick one below.")
-            chips = Self.homeChips
+            await freeText(intent, lib: lib)
         }
     }
 }

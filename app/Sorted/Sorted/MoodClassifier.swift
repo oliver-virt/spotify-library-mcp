@@ -13,6 +13,15 @@ enum Mood: String, CaseIterable {
 #if canImport(FoundationModels)
 @available(iOS 26.0, *)
 @Generable
+struct CapIntent {
+    @Guide(description: "One of: sort, duplicates, rediscover, report, chat")
+    var intent: String
+    @Guide(description: "Cap's one-sentence reply, dry and warm, max 18 words")
+    var reply: String
+}
+
+@available(iOS 26.0, *)
+@Generable
 struct ArtistMoodBatch {
     @Guide(description: "One entry per artist, same order as the input list")
     var entries: [Entry]
@@ -36,6 +45,31 @@ struct MoodClassifier {
         }
         #endif
         return false
+    }
+
+    /// Free-text interpreter: maps the user's sentence to one of Cap's intents + a short in-voice reply.
+    /// The model NEVER does the work — it only picks the tool and writes one line.
+    static func interpret(_ text: String, context: String) async -> (intent: String, reply: String)? {
+        #if canImport(FoundationModels)
+        guard #available(iOS 26.0, *) else { return nil }
+        let session = LanguageModelSession(instructions: """
+            You are Cap, a wry, terse music librarian inside the Da Capo app. The user's library: \(context)
+            Map the user's message to EXACTLY one intent:
+            - sort: they want the library organized / playlists made from it
+            - duplicates: anything about doubles/copies/cleanup
+            - rediscover: forgotten/old/unplayed songs they might revisit
+            - report: stats, play counts, how they listen
+            - chat: none of the above (questions answerable from the context, greetings, or off-topic)
+            Write `reply` as ONE short sentence in Cap's voice (dry, warm, max 18 words, no emoji).
+            For off-topic requests, reply that it's not your counter and name what you do.
+            """)
+        do {
+            let r = try await session.respond(to: text, generating: CapIntent.self).content
+            return (r.intent, r.reply)
+        } catch { return nil }
+        #else
+        return nil
+        #endif
     }
 
     /// One playful sentence describing the library. Nil if unavailable/failed.
