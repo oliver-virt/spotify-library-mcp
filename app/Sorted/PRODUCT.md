@@ -42,3 +42,35 @@ Free: scan + report card, forever. **$6.99 once:** the great sort + all manual a
 ## Constraints (unchanged, now trust features)
 Cannot delete songs, cannot edit foreign playlists (Apple rules) → "it can't touch what it didn't make."
 On-device only, no account, no server. Apple Intelligence required for free-form asks; chips work everywhere.
+
+---
+
+# UI spec v3: The Record Room (24 Aug 2026, evidence-based)
+
+Direction chosen from generated concepts: **A — pixel scene + clean chat + receipts** (ui-a.png). B (full RPG chrome) rejected: legibility + game-cosplay risk. C (corner mascot) rejected: uncommitted.
+
+## Structure — 3 tabs
+1. **Store** — scene header ~300pt, Cap idling (bob/blink), collapses on scroll to slim status bar. Tappable props: crate→stats, notice board→report card, register→receipt history. Below: today's cards (new songs to file, dupes found, plans).
+2. **Chat with Cap** — proposals as receipt cards with APPROVE/DECLINE (never bare bubbles), suggestion chips above composer (≤4), free-text never the only path.
+3. **The Files** — report card, stamped receipts, history. Chat is ephemeral; cards persist here (Dot pattern).
+Cross-links: every Store card deep-links to pre-seeded chat; every approved plan files its receipt.
+
+## The receipt = universal artifact (Receiptify-validated)
+Proposal → receipt; approve → stamped "PAID · CASHIER: CAP"; report card = long thermal receipt; all export Stories-sized (monospace, ruled separators, store header, total line).
+
+## Cap's laws (Finch/Duolingo scars)
+- Reward AFTER action, never gate before; reactions ≤5s; sprite-layer construction (body/head/arms/item) for cheap moods.
+- Wants, not needs: no decay, no guilt. Notifications self-limit after being ignored.
+- His speech IS the insight; tone = wry record clerk, dry, never saccharine.
+- Paywall only after the plan is shown (Finch's #1 complaint = bill before bond).
+
+## One ritual only (Lapse lesson)
+Monthly report "prints overnight" → tear-off gesture in the morning. Everything else: standard iOS nav in retro chrome (wood dividers, price-tag chips, paper receipts).
+
+## Typography
+Pixel font: headers, Cap's short lines, receipt titles. SF Pro/SF Mono: all body & data (>~6 words). Pixel art at integer scales only.
+
+## Asset pipeline (post-FLUX research, Aug 2026)
+- Cap poses & scenes-with-Cap: **fal-ai/nano-banana-2 edit** with canon Cap image as reference ($0.08) — fixes cross-image character drift (seen in ui-a/b/c).
+- True grid pixel scenes/sprites: **Retro Diffusion API** (grid-aligned, palette-limited, ~$0.01–0.18).
+- Icons: **fal-ai/recraft/v4** (SVG, $0.04–0.08). FLUX schnell remains the cheap scratchpad.
