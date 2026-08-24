@@ -214,6 +214,24 @@ struct ReportCard: View {
                     .foregroundStyle(inkSoft)
                     .padding(.top, 12) }
             }
+            if !report.topSongs.isEmpty {
+                reveal(3.5) { VStack(alignment: .leading, spacing: 7) {
+                    HStack {
+                        kick("MOST PLAYED")
+                        Spacer()
+                        kick("COUNTS APPLE HIDES").foregroundStyle(red)
+                    }
+                    ForEach(report.topSongs, id: \.name) { t in
+                        HStack(spacing: 10) {
+                            Text(t.name).font(.system(size: 12, weight: .bold)).lineLimit(1)
+                            Spacer()
+                            Text("×\(t.count)").font(.system(size: 13, weight: .black)).monospacedDigit().foregroundStyle(red)
+                        }
+                        .padding(.vertical, 3)
+                        .overlay(alignment: .bottom) { Rectangle().fill(hairline).frame(height: 1) }
+                    }
+                }.padding(.top, 18) }
+            }
             if !report.genres.isEmpty {
                 reveal(4) { VStack(alignment: .leading, spacing: 7) {
                     kick("GENRES").padding(.bottom, 2)

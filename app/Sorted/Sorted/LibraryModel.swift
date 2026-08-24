@@ -41,6 +41,7 @@ struct Report: Codable {
     var genres: [Pair] = []
     var decades: [Pair] = []
     var topArtists: [Pair] = []
+    var topSongs: [Pair] = []
     var neverPlayed = 0
     var forgotten = 0
     var duplicates = 0
@@ -235,6 +236,8 @@ final class LibraryModel: ObservableObject {
         r.decades = decadeCount.sorted { $0.key < $1.key }.map { Pair(name: "\($0.key % 100)s", count: $0.value) }
         r.artists = artistCount.count
         r.topArtists = artistCount.sorted { $0.value > $1.value }.prefix(5).map { Pair(name: $0.key, count: $0.value) }
+        r.topSongs = tracks.filter { $0.playCount > 0 }.sorted { $0.playCount > $1.playCount }.prefix(5)
+            .map { Pair(name: "\($0.title) — \($0.artist)", count: $0.playCount) }
         r.genres = genreCount.sorted { $0.value > $1.value }.prefix(6).map { Pair(name: $0.key, count: $0.value) }
         r.totalMinutes = Int(secs / 60)
         r.dupeExamples = examples
