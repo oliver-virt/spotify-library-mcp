@@ -14,12 +14,16 @@ struct SortedApp: App {
 struct RootView: View {
     @EnvironmentObject var model: LibraryModel
     var body: some View {
-        NavigationStack {
-            switch model.stage {
-            case .welcome, .scanning: ScanView()
-            case .report: ReportView()
-            case .plan: PlanView()
-            case .applying, .done: ApplyView()
+        Group {
+            if model.stage == .main {
+                TabView {
+                    NavigationStack { ReportView() }
+                        .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
+                    NavigationStack { PlaylistsTab() }
+                        .tabItem { Label("Playlists", systemImage: "music.note.list") }
+                }
+            } else {
+                NavigationStack { ScanView() }
             }
         }
         .tint(Color(red: 0.83, green: 0.39, blue: 0.10))

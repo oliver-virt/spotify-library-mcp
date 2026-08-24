@@ -42,15 +42,15 @@ struct ReportView: View {
                     Label("Share report card", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered).padding(.horizontal)
-                Button { model.stage = .plan } label: {
-                    Text("Show me the plan →").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
-                }
-                .buttonStyle(.borderedProminent).padding(.horizontal)
             }
             .padding(.vertical)
         }
         .navigationTitle("Your library")
         .navigationBarTitleDisplayMode(.inline)
+        .refreshable { await model.scan() }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) {
+            Button { Task { await model.scan() } } label: { Image(systemName: "arrow.clockwise") }
+        } }
     }
     @MainActor func renderCard() -> Image {
         let r = ImageRenderer(content: ReportCard(report: model.report, forExport: true).frame(width: 420))
@@ -117,9 +117,9 @@ struct ReportCard: View {
     }
 }
 
-// MARK: Plan
+// MARK: Playlists tab
 
-struct PlanView: View {
+struct PlaylistsTab: View {
     @EnvironmentObject var model: LibraryModel
     @EnvironmentObject var ent: Entitlements
     @State private var showPaywall = false
@@ -141,56 +141,56 @@ struct PlanView: View {
                     Text("Runs entirely on this phone with Apple Intelligence. Artists the model doesn't truly know are left out rather than guessed.")
                 }
             }
-            Section(footer: Text("Sorted only creates new playlists — it never touches your existing ones. The 🗑️ playlist is a review queue: open it in Music and delete what you don't want.")) {
-                ForEach($model.buckets) { $b in
-                    HStack {
-                        Text(b.emoji)
-                        VStack(alignment: .leading) {
-                            TextField("Name", text: $b.name).font(.headline)
-                            Text("\(b.tracks.count) songs\(b.kind == .duplicates ? " · review queue" : "")")
-                                .font(.caption).foregroundStyle(.secondary)
+            if !model.buckets.isEmpty {
+                Section("Suggested") {
+                    ForEach($model.buckets) { $b in
+                        HStack {
+                            Text(b.emoji)
+                            VStack(alignment: .leading) {
+                                TextField("Name", text: $b.name).font(.headline)
+                                Text("\(b.tracks.count) songs\(b.kind == .duplicates ? " · review queue" : "")")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $b.enabled).labelsHidden()
                         }
-                        Spacer()
-                        Toggle("", isOn: $b.enabled).labelsHidden()
                     }
                 }
+            } else if model.applyLog.isEmpty {
+                Section { Text("Nothing to suggest — rescan after your library grows.").foregroundStyle(.secondary) }
+            }
+            if !model.applyLog.isEmpty {
+                Section("Last run") { ForEach(model.applyLog, id: \.self) { Text($0).font(.subheadline) } }
+            }
+            if !model.created.isEmpty {
+                Section {
+                    ForEach(model.created) { c in
+                        HStack {
+                            Text(c.name)
+                            Spacer()
+                            Text("\(c.count) · \(c.date.formatted(date: .abbreviated, time: .omitted))")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                } header: { Text("Created by Da Capo") } footer: { Text("These live in Apple Music. Deleting one there is always safe — Da Capo never touches the rest of your library.") }
             }
         }
-        .navigationTitle("The plan")
+        .navigationTitle("Playlists")
         .sheet(isPresented: $showPaywall) { PaywallView { Task { await model.apply() } } }
         .safeAreaInset(edge: .bottom) {
-            Button {
-                if ent.unlocked { Task { await model.apply() } } else { showPaywall = true }
-            } label: {
-                Text("Create \(model.buckets.filter(\.enabled).count) playlists")
-                    .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.borderedProminent).padding()
-            .background(.bar)
-        }
-    }
-}
-
-// MARK: Apply
-
-struct ApplyView: View {
-    @EnvironmentObject var model: LibraryModel
-    var body: some View {
-        VStack(spacing: 16) {
-            if model.stage == .applying {
-                ProgressView().controlSize(.large)
-                Text("Building your playlists…").foregroundStyle(.secondary)
-            } else {
-                Text("🎉").font(.system(size: 64))
-                Text("Da capo. 🎶").font(.system(.largeTitle, design: .rounded).weight(.heavy))
-            }
-            List(model.applyLog, id: \.self) { Text($0).font(.subheadline) }
-                .listStyle(.plain).frame(maxHeight: 300)
-            if model.stage == .done {
-                Button { model.stage = .report } label: { Text("Back to report") }
+            if !model.buckets.filter(\.enabled).isEmpty {
+                Button {
+                    if ent.unlocked { Task { await model.apply() } } else { showPaywall = true }
+                } label: {
+                    Group {
+                        if model.applying { ProgressView().tint(.white) }
+                        else { Text("Create \(model.buckets.filter(\.enabled).count) playlists").font(.headline) }
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent).disabled(model.applying).padding()
+                .background(.bar)
             }
         }
-        .padding()
-        .navigationBarBackButtonHidden(model.stage == .applying)
     }
 }

@@ -47,14 +47,16 @@ struct Report {
 
 @MainActor
 final class LibraryModel: ObservableObject {
-    enum Stage { case welcome, scanning, report, plan, applying, done }
+    enum Stage { case welcome, scanning, main }
     @Published var stage: Stage = .welcome
     @Published var scanStatus = ""
     @Published var tracks: [Track] = []
     @Published var report = Report()
     @Published var buckets: [Bucket] = []
     @Published var applyLog: [String] = []
+    @Published var applying = false
     @Published var errorText: String?
+    @Published var created: [CreatedPlaylist] = CreatedPlaylist.load()
     @Published var moodProgress: (done: Int, total: Int)?
     @Published var moodsAdded = false
 
@@ -114,7 +116,7 @@ final class LibraryModel: ObservableObject {
         scanStatus = "Analysing…"
         computeReport(inPlaylists: inPlaylists, meta: meta, durations: durations)
         buildPlan()
-        stage = .report
+        stage = .main
     }
 
     private func computeReport(inPlaylists: Set<MPMediaEntityPersistentID>, meta: [String: MPMediaItem], durations: [String: TimeInterval]) {
@@ -207,8 +209,9 @@ final class LibraryModel: ObservableObject {
     }
 
     func apply() async {
-        stage = .applying
+        applying = true
         applyLog = []
+        var doneIdx: [UUID] = []
         for i in buckets.indices where buckets[i].enabled {
             let b = buckets[i]
             let name = "\(b.emoji) \(b.name)"
@@ -222,11 +225,28 @@ final class LibraryModel: ObservableObject {
                     do { try await MusicLibrary.shared.add(t.song, to: pl); added += 1 } catch {}
                 }
                 applyLog.append("✅ \(name) — \(added) songs")
+                created.insert(CreatedPlaylist(name: name, count: added, date: .now), at: 0)
+                doneIdx.append(b.id)
             } catch {
                 applyLog.append("❌ \(name) — \(error.localizedDescription)")
             }
         }
-        applyLog.append("Done. Open Music to see your new playlists.")
-        stage = .done
+        CreatedPlaylist.save(created)
+        buckets.removeAll { doneIdx.contains($0.id) }
+        applying = false
+    }
+}
+
+struct CreatedPlaylist: Identifiable, Codable {
+    var id = UUID()
+    let name: String
+    let count: Int
+    let date: Date
+    static func load() -> [CreatedPlaylist] {
+        guard let d = UserDefaults.standard.data(forKey: "dacapo.created") else { return [] }
+        return (try? JSONDecoder().decode([CreatedPlaylist].self, from: d)) ?? []
+    }
+    static func save(_ list: [CreatedPlaylist]) {
+        UserDefaults.standard.set(try? JSONEncoder().encode(list), forKey: "dacapo.created")
     }
 }
