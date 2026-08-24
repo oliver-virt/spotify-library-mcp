@@ -37,7 +37,8 @@ struct ReportView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                ReportCard(report: model.report).padding(.horizontal)
+                ReportCard(report: model.report, personality: model.personality).padding(.horizontal)
+                    .task { await model.makePersonality() }
                 ShareLink(item: renderCard(), preview: SharePreview("My library, diagnosed", image: renderCard())) {
                     Label("Share report card", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
                 }
@@ -53,7 +54,7 @@ struct ReportView: View {
         } }
     }
     @MainActor func renderCard() -> Image {
-        let r = ImageRenderer(content: ReportCard(report: model.report, forExport: true).frame(width: 420))
+        let r = ImageRenderer(content: ReportCard(report: model.report, personality: model.personality, forExport: true).frame(width: 420))
         r.scale = 3
         if let ui = r.uiImage { return Image(uiImage: ui) }
         return Image(systemName: "photo")
@@ -62,58 +63,135 @@ struct ReportView: View {
 
 struct ReportCard: View {
     let report: Report
+    var personality: String? = nil
     var forExport = false
+    private let accent = Color(red: 0.83, green: 0.39, blue: 0.10)
     private var yearsSpan: String {
         guard let o = report.oldestAdd else { return "—" }
         let y = Calendar.current.dateComponents([.year], from: o, to: .now).year ?? 0
-        return y > 0 ? "\(y) years of collecting" : "a young library"
+        return y > 0 ? "\(y) yrs" : "<1 yr"
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 18) {
             HStack {
                 Text("MY LIBRARY, DIAGNOSED").font(.system(.caption, design: .rounded).weight(.heavy)).kerning(1.2)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Text("🗂️")
             }
             HStack(spacing: 0) {
-                stat("\(report.total)", "songs")
-                stat("\(report.artists)", "artists")
-                stat("\(report.totalMinutes / 60)h", "of music")
+                hero("\(report.total)", "songs")
+                hero("\(report.artists)", "artists")
+                hero("\(report.totalMinutes / 60)h", "of music")
+                hero(yearsSpan, "collecting")
             }
-            Divider()
-            row("🕳️", "\(report.inNoPlaylist) songs in no playlist")
-            row("💤", "\(report.neverPlayed) never played")
-            row("💎", "\(report.forgotten) forgotten favourites")
-            row("👯", "\(report.duplicates) duplicates")
-            if let top = report.topArtists.first {
-                row("🏆", "\(top.0), \(top.1) songs — you have a type")
+            if let line = personality {
+                Text("“\(line)”")
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold)).italic()
+                    .foregroundStyle(accent)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(accent.opacity(0.10)))
             }
-            row("📅", yearsSpan)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                tile("🕳️", report.inNoPlaylist, "in no playlist")
+                tile("💤", report.neverPlayed, "never played")
+                tile("💎", report.forgotten, "forgotten gems")
+                tile("👯", report.duplicates, "duplicates")
+            }
             if !report.genres.isEmpty {
-                Divider()
-                HStack(spacing: 6) {
-                    ForEach(report.genres.prefix(4), id: \.0) { g in
-                        Text("\(g.0) \(pct(g.1))").font(.system(.caption2, design: .rounded).weight(.semibold))
-                            .padding(.horizontal, 8).padding(.vertical, 4)
-                            .background(Capsule().fill(Color(red: 0.83, green: 0.39, blue: 0.10).opacity(0.14)))
+                section("GENRES")
+                let maxG = report.genres.first?.1 ?? 1
+                VStack(spacing: 7) {
+                    ForEach(report.genres.prefix(5), id: \.0) { g in
+                        HStack(spacing: 8) {
+                            Text(g.0).font(.system(.caption, design: .rounded).weight(.semibold))
+                                .frame(width: 92, alignment: .leading).lineLimit(1)
+                            GeometryReader { geo in
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(accent)
+                                    .frame(width: max(6, geo.size.width * CGFloat(g.1) / CGFloat(maxG)), height: 8)
+                                    .frame(maxHeight: .infinity, alignment: .center)
+                            }
+                            Text(pct(g.1)).font(.system(.caption2, design: .rounded).weight(.bold))
+                                .foregroundStyle(.secondary).frame(width: 36, alignment: .trailing)
+                                .monospacedDigit()
+                        }
+                        .frame(height: 16)
+                    }
+                }
+            }
+            if report.decades.count >= 2 {
+                section("DECADES")
+                let maxD = report.decades.map(\.1).max() ?? 1
+                HStack(alignment: .bottom, spacing: 6) {
+                    ForEach(report.decades, id: \.0) { d in
+                        VStack(spacing: 4) {
+                            Text("\(d.1)").font(.system(size: 9, design: .rounded).weight(.bold))
+                                .foregroundStyle(.secondary).monospacedDigit()
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(accent.opacity(0.85))
+                                .frame(height: max(6, 52 * CGFloat(d.1) / CGFloat(maxD)))
+                            Text(d.0).font(.system(size: 10, design: .rounded).weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+            }
+            if !report.topArtists.isEmpty {
+                section("ON HEAVY ROTATION")
+                let maxA = report.topArtists.first?.1 ?? 1
+                VStack(spacing: 7) {
+                    ForEach(report.topArtists.prefix(5), id: \.0) { a in
+                        HStack(spacing: 8) {
+                            Text(a.0).font(.system(.caption, design: .rounded).weight(.semibold))
+                                .frame(width: 110, alignment: .leading).lineLimit(1)
+                            GeometryReader { geo in
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(accent.opacity(0.55))
+                                    .frame(width: max(6, geo.size.width * CGFloat(a.1) / CGFloat(maxA)), height: 8)
+                                    .frame(maxHeight: .infinity, alignment: .center)
+                            }
+                            Text("\(a.1)").font(.system(.caption2, design: .rounded).weight(.bold))
+                                .foregroundStyle(.secondary).frame(width: 28, alignment: .trailing)
+                                .monospacedDigit()
+                        }
+                        .frame(height: 16)
                     }
                 }
             }
             if forExport {
-                Text("Da Capo — play your library again · dacapo.fm").font(.caption2).foregroundStyle(.secondary)
+                Text("Da Capo — play your library again · dacapo.fm")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
         }
         .padding(20)
-        .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemGroupedBackground)))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(.quaternary))
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color(.secondarySystemGroupedBackground)))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(.quaternary))
     }
     func pct(_ n: Int) -> String { report.total > 0 ? "\(Int(round(Double(n) * 100 / Double(report.total))))%" : "" }
-    func stat(_ v: String, _ l: String) -> some View {
-        VStack { Text(v).font(.system(.title, design: .rounded).weight(.heavy)); Text(l).font(.caption).foregroundStyle(.secondary) }
-            .frame(maxWidth: .infinity)
+    func hero(_ v: String, _ l: String) -> some View {
+        VStack(spacing: 2) {
+            Text(v).font(.system(.title2, design: .rounded).weight(.heavy)).monospacedDigit()
+            Text(l).font(.system(size: 11)).foregroundStyle(.secondary)
+        }.frame(maxWidth: .infinity)
     }
-    func row(_ e: String, _ t: String) -> some View {
-        HStack(spacing: 10) { Text(e); Text(t).font(.system(.subheadline, design: .rounded)) }
+    func tile(_ e: String, _ n: Int, _ l: String) -> some View {
+        HStack(spacing: 10) {
+            Text(e).font(.title3)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("\(n)").font(.system(.headline, design: .rounded).weight(.heavy)).monospacedDigit()
+                Text(l).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.tertiarySystemGroupedBackground)))
+    }
+    func section(_ t: String) -> some View {
+        Text(t).font(.system(size: 11, design: .rounded).weight(.heavy)).kerning(1.1).foregroundStyle(.secondary)
     }
 }
 

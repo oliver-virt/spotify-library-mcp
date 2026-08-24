@@ -38,6 +38,17 @@ struct MoodClassifier {
         return false
     }
 
+    /// One playful sentence describing the library. Nil if unavailable/failed.
+    static func oneLiner(facts: String) async -> String? {
+        #if canImport(FoundationModels)
+        guard #available(iOS 26.0, *) else { return nil }
+        let session = LanguageModelSession(instructions: "You write ONE playful, specific sentence (max 15 words) describing someone's music library from stats. Warm, a little cheeky, never mean. No emoji, no quotes.")
+        return try? await session.respond(to: facts).content.trimmingCharacters(in: .whitespacesAndNewlines)
+        #else
+        return nil
+        #endif
+    }
+
     /// Returns artist → mood for artists the model knows with confidence ≥ 80. Unknown artists are simply absent.
     /// (Device probe 2026-08-23: the model is reliable on mainstream Latin-script artists at high confidence,
     /// and confidently wrong on niche/non-Latin ones — hence the hard gate + genre hint in the prompt.)

@@ -36,6 +36,7 @@ struct Report {
     var total = 0
     var artists = 0
     var genres: [(String, Int)] = []
+    var decades: [(String, Int)] = []
     var topArtists: [(String, Int)] = []
     var neverPlayed = 0
     var forgotten = 0
@@ -59,6 +60,7 @@ final class LibraryModel: ObservableObject {
     @Published var created: [CreatedPlaylist] = CreatedPlaylist.load()
     @Published var moodProgress: (done: Int, total: Int)?
     @Published var moodsAdded = false
+    @Published var personality: String?
 
     func scan() async {
         stage = .scanning
@@ -119,6 +121,13 @@ final class LibraryModel: ObservableObject {
         stage = .main
     }
 
+    func makePersonality() async {
+        guard MoodClassifier.isAvailable, personality == nil else { return }
+        let g = report.genres.prefix(3).map { "\($0.0) \(Int(round(Double($0.1) * 100 / Double(max(report.total, 1)))))%" }.joined(separator: ", ")
+        let facts = "Top artist: \(report.topArtists.first?.0 ?? "?") (\(report.topArtists.first?.1 ?? 0) songs). Genres: \(g). \(report.neverPlayed) of \(report.total) never played. Decades: \(report.decades.map { "\($0.0):\($0.1)" }.joined(separator: " "))."
+        personality = await MoodClassifier.oneLiner(facts: facts)
+    }
+
     private func computeReport(inPlaylists: Set<MPMediaEntityPersistentID>, meta: [String: MPMediaItem], durations: [String: TimeInterval]) {
         var r = Report()
         r.total = tracks.count
@@ -137,6 +146,9 @@ final class LibraryModel: ObservableObject {
             secs += durations[t.key] ?? 0
             if let a = t.added, r.oldestAdd == nil || a < r.oldestAdd! { r.oldestAdd = a }
         }
+        var decadeCount: [Int: Int] = [:]
+        for t in tracks where t.year >= 1950 { decadeCount[(t.year / 10) * 10, default: 0] += 1 }
+        r.decades = decadeCount.sorted { $0.key < $1.key }.map { ("\($0.key % 100)s", $0.value) }
         r.artists = artistCount.count
         r.topArtists = artistCount.sorted { $0.value > $1.value }.prefix(5).map { ($0.key, $0.value) }
         r.genres = genreCount.sorted { $0.value > $1.value }.prefix(6).map { ($0.key, $0.value) }
