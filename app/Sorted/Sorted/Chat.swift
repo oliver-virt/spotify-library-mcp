@@ -157,6 +157,8 @@ struct ChatView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .onChange(of: chat.messages.count) { _, _ in withAnimation { proxy.scrollTo("end") } }
+                .scrollDismissesKeyboard(.interactively)
+                .onTapGesture { hideKeyboard() }
             }
             chipsRow
             composer
@@ -230,6 +232,7 @@ struct ChatView: View {
         let t = input.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty else { return }
         input = ""
+        hideKeyboard()
         Task { await chat.run(t, lib: lib) }
     }
 
@@ -247,6 +250,10 @@ struct ChatView: View {
             AppStore.requestReview(in: scene)
         }
     }
+}
+
+func hideKeyboard() {
+    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
 }
 
 func capAvatar(_ size: CGFloat) -> some View {
