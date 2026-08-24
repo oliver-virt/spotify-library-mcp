@@ -35,6 +35,8 @@ struct ScanView: View {
 struct ReportView: View {
     @EnvironmentObject var model: LibraryModel
     @State private var showDupes = false
+    @State private var showRepeats = false
+    @State private var showSleepers = false
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -43,13 +45,21 @@ struct ReportView: View {
                 }
                 ReportCard(report: model.report, personality: model.personality).padding(.horizontal)
                     .task { await model.makePersonality() }
-                if !model.report.dupeExamples.isEmpty {
-                    Button { showDupes = true } label: {
-                        Label("See your \(model.report.duplicates) duplicates", systemImage: "doc.on.doc")
-                            .frame(maxWidth: .infinity)
+                VStack(spacing: 8) {
+                    if !model.report.dupeExamples.isEmpty {
+                        Button { showDupes = true } label: {
+                            Label("See your \(model.report.duplicates) duplicates", systemImage: "doc.on.doc").frame(maxWidth: .infinity)
+                        }.buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered).padding(.horizontal)
-                }
+                    HStack(spacing: 8) {
+                        Button { showRepeats = true } label: {
+                            Label("Most played", systemImage: "repeat").frame(maxWidth: .infinity)
+                        }.buttonStyle(.bordered)
+                        Button { showSleepers = true } label: {
+                            Label("\(model.report.neverPlayed) never played", systemImage: "zzz").frame(maxWidth: .infinity)
+                        }.buttonStyle(.bordered)
+                    }
+                }.padding(.horizontal)
                 ShareLink(item: renderCard(), preview: SharePreview("My library, diagnosed", image: renderCard())) {
                     Label("Share report card", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
                 }
@@ -61,6 +71,8 @@ struct ReportView: View {
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await model.scan() }
         .sheet(isPresented: $showDupes) { DupesSheet(report: model.report) }
+        .sheet(isPresented: $showRepeats) { RepeatsSheet() }
+        .sheet(isPresented: $showSleepers) { SleepersSheet() }
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
             Button { Task { await model.scan() } } label: { Image(systemName: "arrow.clockwise") }
         } }
@@ -245,6 +257,67 @@ struct DupesSheet: View {
                 }
             }
             .navigationTitle("Your duplicates")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
+struct RepeatsSheet: View {
+    @EnvironmentObject var model: LibraryModel
+    @Environment(\.dismiss) var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                let top = model.tracks.filter { $0.playCount > 0 }.sorted { $0.playCount > $1.playCount }.prefix(50)
+                if top.isEmpty {
+                    Text("No play counts yet — plays on this device will show up here.").foregroundStyle(.secondary)
+                }
+                ForEach(Array(top)) { t in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(t.title).font(.headline).lineLimit(1)
+                            Text(t.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer()
+                        Text("\(t.playCount)×").font(.system(.headline, design: .rounded).weight(.heavy))
+                            .foregroundStyle(Color(red: 0.83, green: 0.39, blue: 0.10)).monospacedDigit()
+                    }
+                }
+            }
+            .navigationTitle("On repeat")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
+struct SleepersSheet: View {
+    @EnvironmentObject var model: LibraryModel
+    @Environment(\.dismiss) var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                let sleepers = model.tracks.filter { $0.playCount == 0 }.sorted { ($0.added ?? .now) < ($1.added ?? .now) }
+                Section {
+                    ForEach(sleepers) { t in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(t.title).font(.headline).lineLimit(1)
+                                Text(t.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            Spacer()
+                            if let a = t.added {
+                                Text("added \(a.formatted(.dateTime.month(.abbreviated).year()))")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } footer: {
+                    Text("You saved these for a reason. The 💎 Rediscover playlist starts here.")
+                }
+            }
+            .navigationTitle("Never played")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
         }
