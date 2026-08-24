@@ -1,32 +1,80 @@
 import SwiftUI
 
+enum Swiss {
+    static let ink = Color(red: 0.067, green: 0.071, blue: 0.078)
+    static let red = Color(red: 0.91, green: 0.27, blue: 0.11)
+    static let paper = Color.white
+}
+
+struct SwissButton: View {
+    let title: String
+    var subtitle: String? = nil
+    var disabled = false
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Text(title).font(.system(size: 15, weight: .heavy)).tracking(1.4)
+                if let sub = subtitle { Text(sub).font(.system(size: 10, weight: .semibold)).tracking(0.5).opacity(0.65) }
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity).padding(.vertical, 15)
+            .background(Rectangle().fill(disabled ? Swiss.ink.opacity(0.35) : Swiss.ink))
+        }
+        .disabled(disabled)
+    }
+}
+
 // MARK: Scan
 
 struct ScanView: View {
     @EnvironmentObject var model: LibraryModel
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 0) {
             Spacer()
-            Text("🗂️").font(.system(size: 72))
-            Text("Da Capo").font(.system(size: 40, weight: .heavy, design: .rounded))
-            Text("Your music library, finally organised.\nNothing leaves your phone.")
-                .multilineTextAlignment(.center).foregroundStyle(.secondary)
-            if model.stage == .scanning {
-                ProgressView().padding(.top)
-                Text(model.scanStatus).font(.footnote).foregroundStyle(.secondary)
-                    .contentTransition(.numericText())
-            } else {
-                Button { Task { await model.scan() } } label: {
-                    Text("Scan my library").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 6)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    HStack(spacing: 7) { Rectangle().fill(Swiss.red).frame(width: 14, height: 14); Text("D.C.").font(.system(size: 13, weight: .heavy)).tracking(1) }
+                    Spacer()
+                    Text("EST. 2026").font(.system(size: 9, weight: .heavy)).tracking(1.4).foregroundStyle(Swiss.ink.opacity(0.45))
                 }
-                .buttonStyle(.borderedProminent).padding(.horizontal, 40).padding(.top)
-                if let e = model.errorText {
-                    Text(e).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center).padding(.horizontal)
+                Text("DA CAPO")
+                    .font(.system(size: 52, weight: .black)).tracking(-1)
+                    .padding(.top, 6)
+                Rectangle().fill(Swiss.ink).frame(height: 3).padding(.top, 6)
+                Text("Your music library, finally organised.")
+                    .font(.system(size: 15, weight: .semibold)).padding(.top, 12)
+                Text("Nothing leaves your phone.")
+                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Swiss.ink.opacity(0.5))
+                if model.stage == .scanning {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(Swiss.red)
+                        Text(model.scanStatus).font(.system(size: 13, weight: .semibold)).monospacedDigit()
+                            .contentTransition(.numericText()).foregroundStyle(Swiss.ink.opacity(0.6))
+                    }.padding(.top, 24)
+                } else {
+                    SwissButton(title: "SCAN MY LIBRARY") { Task { await model.scan() } }
+                        .padding(.top, 24)
+                    if let e = model.errorText {
+                        Text(e).font(.footnote).foregroundStyle(Swiss.red).padding(.top, 10)
+                    }
                 }
+                HStack {
+                    Text("READ-ONLY SCAN").font(.system(size: 8.5, weight: .heavy)).tracking(1)
+                    Spacer()
+                    Text("DACAPO.FM").font(.system(size: 8.5, weight: .heavy)).tracking(1).foregroundStyle(Swiss.red)
+                }
+                .foregroundStyle(Swiss.ink.opacity(0.45))
+                .padding(.top, 22)
             }
+            .foregroundStyle(Swiss.ink)
+            .padding(26)
+            .background(Swiss.paper)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
+            .padding(.horizontal, 24)
             Spacer(); Spacer()
         }
-        .padding()
     }
 }
 
@@ -444,25 +492,24 @@ struct PlaylistsTab: View {
         .sheet(isPresented: $showPaywall) { PaywallView { Task { await model.apply() } } }
         .safeAreaInset(edge: .bottom) {
             if !model.buckets.filter(\.enabled).isEmpty {
-              VStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Text("Health \(model.report.health)").fontWeight(.bold)
-                    Image(systemName: "arrow.right")
-                    Text("\(model.report.projectedHealth)").fontWeight(.heavy).foregroundStyle(Color(red: 0.91, green: 0.27, blue: 0.11))
+              VStack(spacing: 0) {
+                HStack(spacing: 5) {
+                    Text("HEALTH").font(.system(size: 9, weight: .heavy)).tracking(1).foregroundStyle(.secondary)
+                    Text("\(model.report.health)").font(.system(size: 13, weight: .black)).monospacedDigit()
+                    Text("→").font(.system(size: 12, weight: .bold)).foregroundStyle(.secondary)
+                    Text("\(model.report.projectedHealth)").font(.system(size: 13, weight: .black)).monospacedDigit().foregroundStyle(Swiss.red)
                     Text("· \(model.report.inNoPlaylist) unfiled → 0 · \(model.report.duplicates) dupes queued")
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 }
-                .font(.system(.caption, design: .rounded))
-                Button {
-                    if ent.unlocked { Task { await model.apply() } } else { showPaywall = true }
-                } label: {
-                    Group {
-                        if model.applying { ProgressView().tint(.white) }
-                        else { Text("Create \(model.buckets.filter(\.enabled).count) playlists").font(.headline) }
+                .padding(.bottom, 8)
+                if model.applying {
+                    SwissButton(title: "CREATING…", disabled: true) {}
+                } else {
+                    SwissButton(title: "CREATE \(model.buckets.filter(\.enabled).count) PLAYLISTS",
+                                subtitle: ent.unlocked ? nil : "one-time unlock") {
+                        if ent.unlocked { Task { await model.apply() } } else { showPaywall = true }
                     }
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
                 }
-                .buttonStyle(.borderedProminent).disabled(model.applying)
               }
               .padding()
               .background(.bar)
