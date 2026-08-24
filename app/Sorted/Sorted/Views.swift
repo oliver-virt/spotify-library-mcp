@@ -93,6 +93,9 @@ struct ReportView: View {
                 }
                 ReportCard(report: model.report, personality: model.personality).padding(.horizontal)
                     .task { await model.makePersonality() }
+                if !model.recentPlays.isEmpty {
+                    RecentStrip(plays: model.recentPlays).padding(.horizontal)
+                }
                 VStack(spacing: 8) {
                     if !model.report.dupeExamples.isEmpty {
                         Button { showDupes = true } label: {
@@ -303,6 +306,42 @@ struct ReportCard: View {
     func divider() -> some View { Rectangle().fill(hairline).frame(width: 1).padding(.vertical, 6) }
 }
 
+struct RecentStrip: View {
+    let plays: [RecentPlay]
+    private let ink = Swiss.ink
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("RECENTLY PLAYED").font(.system(size: 10, weight: .heavy)).tracking(1.4)
+                Spacer()
+                Text("YOUR PULSE").font(.system(size: 10, weight: .heavy)).tracking(1.4).foregroundStyle(Swiss.red)
+            }
+            .padding(.bottom, 6)
+            Rectangle().fill(ink).frame(height: 2)
+            ForEach(plays.prefix(5)) { p in
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(p.title).font(.system(size: 13, weight: .bold)).lineLimit(1)
+                            Text(p.artist).font(.system(size: 11, weight: .medium)).foregroundStyle(ink.opacity(0.5)).lineLimit(1)
+                        }
+                        Spacer()
+                        Text(p.when.formatted(.relative(presentation: .named)))
+                            .font(.system(size: 10, weight: .heavy)).foregroundStyle(ink.opacity(0.45))
+                    }
+                    .padding(.vertical, 7)
+                    Rectangle().fill(ink.opacity(0.12)).frame(height: 1)
+                }
+            }
+        }
+        .foregroundStyle(ink)
+        .padding(.horizontal, 22).padding(.vertical, 14)
+        .background(Swiss.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+    }
+}
+
 struct DupesSheet: View {
     let report: Report
     @Environment(\.dismiss) var dismiss
@@ -473,6 +512,22 @@ struct PlaylistsTab: View {
             }
             if !model.applyLog.isEmpty {
                 Section("Last run") { ForEach(model.applyLog, id: \.self) { Text($0).font(.subheadline) } }
+            }
+            if !model.userPlaylists.isEmpty {
+                Section {
+                    ForEach(model.userPlaylists.prefix(12)) { pl in
+                        HStack {
+                            Text(pl.name).font(.system(size: 15, weight: .semibold))
+                            Spacer()
+                            Text("\(pl.count)").font(.system(size: 13, weight: .heavy)).monospacedDigit().foregroundStyle(.secondary)
+                        }
+                    }
+                    if model.userPlaylists.count > 12 {
+                        Text("+ \(model.userPlaylists.count - 12) more").font(.caption).foregroundStyle(.secondary)
+                    }
+                } header: { Text("Your playlists") } footer: {
+                    Text("Da Capo reads these — it never edits or deletes them.")
+                }
             }
             if !model.created.isEmpty {
                 Section {

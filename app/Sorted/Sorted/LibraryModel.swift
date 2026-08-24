@@ -76,6 +76,17 @@ struct DupeExample: Codable, Hashable, Identifiable {
     let title: String, artist: String, albumA: String, albumB: String
 }
 
+struct UserPlaylist: Identifiable {
+    var id: String { name }
+    let name: String
+    let count: Int
+}
+
+struct RecentPlay: Identifiable {
+    var id: String { title + artist }
+    let title: String, artist: String, when: Date
+}
+
 struct Delta {
     let songs: Int, duplicates: Int, unfiled: Int, healthFrom: Int, healthTo: Int, since: Date
     var isEmpty: Bool { songs == 0 && duplicates == 0 && unfiled == 0 && healthFrom == healthTo }
@@ -89,6 +100,8 @@ final class LibraryModel: ObservableObject {
     @Published var tracks: [Track] = []
     @Published var report = Report()
     @Published var delta: Delta?
+    @Published var userPlaylists: [UserPlaylist] = []
+    @Published var recentPlays: [RecentPlay] = []
 
     init() {
         if let saved = Report.load() { report = saved; stage = .main }
@@ -120,9 +133,21 @@ final class LibraryModel: ObservableObject {
             durations[k] = m.playbackDuration
         }
         var inPlaylists = Set<MPMediaEntityPersistentID>()
+        var pls: [UserPlaylist] = []
         for pl in MPMediaQuery.playlists().collections ?? [] {
             for item in pl.items { inPlaylists.insert(item.persistentID) }
+            if let mp = pl as? MPMediaPlaylist, let name = mp.name, !name.isEmpty {
+                pls.append(UserPlaylist(name: name, count: pl.count))
+            }
         }
+        userPlaylists = pls.sorted { $0.count > $1.count }
+        recentPlays = (MPMediaQuery.songs().items ?? [])
+            .compactMap { m -> RecentPlay? in
+                guard let d = m.lastPlayedDate else { return nil }
+                return RecentPlay(title: m.title ?? "?", artist: m.artist ?? "", when: d)
+            }
+            .sorted { $0.when > $1.when }
+            .prefix(8).map { $0 }
         var collected: [Track] = []
         do {
             var req = MusicLibraryRequest<Song>()

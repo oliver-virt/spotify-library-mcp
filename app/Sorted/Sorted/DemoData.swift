@@ -31,6 +31,13 @@ extension LibraryModel {
             Bucket(name: "Review & Delete", emoji: "🗑️", tracks: [], kind: .duplicates),
         ]
         created = [CreatedPlaylist(name: "⚡ Workout", count: 214, date: Calendar.current.date(byAdding: .day, value: -8, to: .now)!)]
+        userPlaylists = [UserPlaylist(name: "gym 2022", count: 118), UserPlaylist(name: "chill vibes", count: 74), UserPlaylist(name: "roadtrip!!", count: 61), UserPlaylist(name: "old but gold", count: 33)]
+        let now = Date.now
+        recentPlays = [RecentPlay(title: "Do I Wanna Know?", artist: "Arctic Monkeys", when: now.addingTimeInterval(-3600)),
+                       RecentPlay(title: "Money Trees", artist: "Kendrick Lamar", when: now.addingTimeInterval(-7800)),
+                       RecentPlay(title: "Weird Fishes", artist: "Radiohead", when: now.addingTimeInterval(-90000)),
+                       RecentPlay(title: "Sultans of Swing", artist: "Dire Straits", when: now.addingTimeInterval(-176400)),
+                       RecentPlay(title: "bad guy", artist: "Billie Eilish", when: now.addingTimeInterval(-260000))]
         stage = .main
     }
 }
