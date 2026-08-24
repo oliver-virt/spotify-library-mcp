@@ -219,12 +219,30 @@ final class LibraryModel: ObservableObject {
                 let desc = b.kind == .duplicates
                     ? "Duplicates found by Da Capo — review and delete in Music"
                     : "Organised by Da Capo"
-                let pl = try await MusicLibrary.shared.createPlaylist(name: name, description: desc)
+                // Idempotent: refresh our own playlist if it already exists; never create a twin.
+                var existing: Playlist? = nil
+                var preq = MusicLibraryRequest<Playlist>()
+                preq.limit = 200
+                if let all = try? await preq.response().items { existing = all.first { $0.name == name } }
+                var pl: Playlist
+                var refreshed = false
+                if let ex = existing {
+                    do {
+                        _ = try await MusicLibrary.shared.edit(ex, items: [] as [Song])   // empty it → we own it
+                        pl = ex; refreshed = true
+                    } catch {
+                        applyLog.append("⏭️ \(name) exists but wasn't made by Da Capo — skipped. Delete the old one in Music and re-run.")
+                        continue
+                    }
+                } else {
+                    pl = try await MusicLibrary.shared.createPlaylist(name: name, description: desc)
+                }
                 var added = 0
                 for t in b.tracks {
                     do { try await MusicLibrary.shared.add(t.song, to: pl); added += 1 } catch {}
                 }
-                applyLog.append("✅ \(name) — \(added) songs")
+                applyLog.append("\(refreshed ? "🔄" : "✅") \(name) — \(added) songs\(refreshed ? " (refreshed)" : "")")
+                created.removeAll { $0.name == name }
                 created.insert(CreatedPlaylist(name: name, count: added, date: .now), at: 0)
                 doneIdx.append(b.id)
             } catch {
