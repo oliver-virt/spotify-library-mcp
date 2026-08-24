@@ -103,6 +103,7 @@ final class LibraryModel: ObservableObject {
     @Published var tracks: [Track] = []
     @Published var report = Report()
     @Published var delta: Delta?
+    let migration = Migration()
     @Published var userPlaylists: [UserPlaylist] = []
     @Published var recentPlays: [RecentPlay] = []
 

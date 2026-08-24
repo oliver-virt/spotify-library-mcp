@@ -17,6 +17,7 @@ enum CapTheme {
 
 struct ChatMsg: Identifiable {
     enum Kind {
+        case migration
         case user(String)
         case cap(String)
         case plan
@@ -33,7 +34,13 @@ final class ChatModel: ObservableObject {
     @Published var messages: [ChatMsg] = []
     @Published var thinking = false
     @Published var chips: [String] = ChatModel.homeChips
-    static let homeChips = ["Sort my library", "Find duplicates", "What did I forget?", "How do I listen?"]
+    static var homeChips: [String] {
+        var c = ["Sort my library", "Find duplicates", "What did I forget?", "How do I listen?"]
+        if Migration.exportAvailable && !UserDefaults.standard.bool(forKey: "dacapo.migrationDone") {
+            c.insert("Import my Spotify", at: 0)
+        }
+        return c
+    }
 
     func cap(_ t: String) { messages.append(ChatMsg(kind: .cap(t))) }
 
@@ -86,6 +93,16 @@ final class ChatModel: ObservableObject {
         try? await Task.sleep(for: .milliseconds(500))
         thinking = false
         switch intent {
+        case "Import my Spotify":
+            cap("Found your Spotify export — 1,325 liked songs and 9 playlists. This takes a few minutes; keep the app open. Starting now.")
+            messages.append(ChatMsg(kind: .migration))
+            chips = []
+            await lib.migration.run()
+            let m = lib.migration
+            cap("Done. Matched \(m.matched) of \(m.total) songs, added \(m.addedToLibrary) to your library, rebuilt \(m.playlistsBuilt) playlists.\(m.unmatched.isEmpty ? "" : " \(m.unmatched.count) didn't exist on Apple Music — they're listed in The Files.") Now rescanning…")
+            await lib.scan()
+            cap("Fresh numbers are in. Ask me anything — this is a real library now.")
+            chips = ["How do I listen?", "Sort my library"]
         case "Sort my library":
             let never = lib.report.neverPlayed
             cap("Done reading. \(lib.report.total.formatted()) songs\(never > 0 ? ", and \(never.formatted()) you have never played" : ""). Here is what I suggest:")
@@ -303,6 +320,8 @@ struct MsgView: View {
                 }
             }
             .padding(.leading, 38)
+        case .migration:
+            MigrationCard().padding(.leading, 38)
         case .dupes:
             PaperCard(title: "DUPLICATES", right: "\(lib.report.duplicates)") {
                 ForEach(lib.report.dupeExamples.prefix(5)) { d in
@@ -316,6 +335,41 @@ struct MsgView: View {
                     .font(.system(size: 11)).foregroundStyle(CapTheme.paperInk.opacity(0.6)).padding(.top, 6)
             }
             .padding(.leading, 38)
+        }
+    }
+}
+
+struct MigrationCard: View {
+    @EnvironmentObject var lib: LibraryModel
+    var body: some View {
+        let m = lib.migration
+        return PaperCard(title: "SPOTIFY IMPORT", right: m.running ? "WORKING" : "DONE") {
+            HStack {
+                Text("Searched").font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Text("\(m.done) / \(m.total)").font(.system(size: 13, weight: .heavy, design: .monospaced))
+                    .contentTransition(.numericText(value: Double(m.done)))
+            }.padding(.vertical, 2)
+            HStack {
+                Text("Matched").font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Text("\(m.matched)").font(.system(size: 13, weight: .heavy, design: .monospaced))
+                    .contentTransition(.numericText(value: Double(m.matched)))
+            }.padding(.vertical, 2)
+            HStack {
+                Text("In your library").font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Text("\(m.addedToLibrary)").font(.system(size: 13, weight: .heavy, design: .monospaced))
+                    .contentTransition(.numericText(value: Double(m.addedToLibrary)))
+            }.padding(.vertical, 2)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Rectangle().fill(CapTheme.paperInk.opacity(0.15))
+                    Rectangle().fill(CapTheme.red)
+                        .frame(width: m.total > 0 ? geo.size.width * CGFloat(m.done) / CGFloat(m.total) : 0)
+                }
+            }
+            .frame(height: 8).padding(.top, 8)
         }
     }
 }
@@ -418,6 +472,15 @@ struct FilesTab: View {
                                 Spacer()
                             }
                         }
+                    }
+                }
+                let unmatched = UserDefaults.standard.stringArray(forKey: "dacapo.mig.unmatched") ?? []
+                if !unmatched.isEmpty {
+                    Section {
+                        ForEach(unmatched.prefix(50), id: \.self) { Text($0).font(.system(size: 13)) }
+                        if unmatched.count > 50 { Text("+ \(unmatched.count - 50) more").font(.caption).foregroundStyle(.secondary) }
+                    } header: { Text("Not on Apple Music (\(unmatched.count))") } footer: {
+                        Text("These Spotify songs had no verified match in the Apple Music catalog.")
                     }
                 }
                 Section { } footer: {

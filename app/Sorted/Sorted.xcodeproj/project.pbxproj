@@ -12,11 +12,13 @@
 		4392A920F33D753420E4624E /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9377A33ECC3AE45B879682 /* DemoData.swift */; };
 		65959D353C24A09927D43EE8 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46FBB40D3C54648C70C5C7C /* App.swift */; };
 		8583CF052E3B2BC7022E39E0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */; };
+		8595BC6B3B92DEBB17167CFE /* Migration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 974355B0AB3AE52AA69C8457 /* Migration.swift */; };
 		9ADE1DB8A42C80C9526437C7 /* DaCapo.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 1EE01C509E3E1CDB7E0314BD /* DaCapo.storekit */; };
 		C2D573EA760D3D21A279AE14 /* Paywall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8C1D49889BEC4C0A08A8A2 /* Paywall.swift */; };
 		CCB4216FBD113A595FACAE40 /* Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */; };
 		D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238946DFD6280AD363D02F94 /* MoodClassifier.swift */; };
 		EF1A58B5495842291C9CADE9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = ED81A0500D285C616ABB9F76 /* PrivacyInfo.xcprivacy */; };
+		FBCFA03251E9F3C2464D0C14 /* spotify-export.json in Resources */ = {isa = PBXBuildFile; fileRef = E1C401930A1438706A50D420 /* spotify-export.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,9 +29,11 @@
 		2C9377A33ECC3AE45B879682 /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
 		6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		974355B0AB3AE52AA69C8457 /* Migration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Migration.swift; sourceTree = "<group>"; };
 		B405BEDF44C30C0AFA24792F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C46FBB40D3C54648C70C5C7C /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		D13439C1D8D5861296DC82E4 /* LibraryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryModel.swift; sourceTree = "<group>"; };
+		E1C401930A1438706A50D420 /* spotify-export.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "spotify-export.json"; sourceTree = "<group>"; };
 		ED81A0500D285C616ABB9F76 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		F1DDB38B51AEFC9F55F0DF82 /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -61,9 +65,11 @@
 				2C9377A33ECC3AE45B879682 /* DemoData.swift */,
 				B405BEDF44C30C0AFA24792F /* Info.plist */,
 				D13439C1D8D5861296DC82E4 /* LibraryModel.swift */,
+				974355B0AB3AE52AA69C8457 /* Migration.swift */,
 				238946DFD6280AD363D02F94 /* MoodClassifier.swift */,
 				1E8C1D49889BEC4C0A08A8A2 /* Paywall.swift */,
 				ED81A0500D285C616ABB9F76 /* PrivacyInfo.xcprivacy */,
+				E1C401930A1438706A50D420 /* spotify-export.json */,
 				F1DDB38B51AEFC9F55F0DF82 /* Views.swift */,
 			);
 			path = Sorted;
@@ -132,6 +138,7 @@
 				8583CF052E3B2BC7022E39E0 /* Assets.xcassets in Resources */,
 				9ADE1DB8A42C80C9526437C7 /* DaCapo.storekit in Resources */,
 				EF1A58B5495842291C9CADE9 /* PrivacyInfo.xcprivacy in Resources */,
+				FBCFA03251E9F3C2464D0C14 /* spotify-export.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -146,6 +153,7 @@
 				CCB4216FBD113A595FACAE40 /* Chat.swift in Sources */,
 				4392A920F33D753420E4624E /* DemoData.swift in Sources */,
 				3E37D83FD9EEA1BC873ADE9F /* LibraryModel.swift in Sources */,
+				8595BC6B3B92DEBB17167CFE /* Migration.swift in Sources */,
 				D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */,
 				C2D573EA760D3D21A279AE14 /* Paywall.swift in Sources */,
 				05551D10649EB5931A56B7CD /* Views.swift in Sources */,
