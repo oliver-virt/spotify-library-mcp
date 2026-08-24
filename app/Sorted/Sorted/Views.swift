@@ -69,6 +69,7 @@ struct ReportView: View {
         }
         .navigationTitle("Your library")
         .navigationBarTitleDisplayMode(.inline)
+        .sensoryFeedback(.success, trigger: model.report.scannedAt)
         .refreshable { await model.scan() }
         .sheet(isPresented: $showDupes) { DupesSheet(report: model.report) }
         .sheet(isPresented: $showRepeats) { RepeatsSheet() }
@@ -89,6 +90,8 @@ struct ReportCard: View {
     let report: Report
     var personality: String? = nil
     var forExport = false
+    @State private var revealed = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     private let accent = Color(red: 0.83, green: 0.39, blue: 0.10)
     private var yearsSpan: String {
         guard let o = report.oldestAdd else { return "—" }
@@ -103,13 +106,13 @@ struct ReportCard: View {
                 Spacer()
                 Text("🗂️")
             }
-            HStack(spacing: 0) {
+            reveal(0) { HStack(spacing: 0) {
                 hero("\(report.total)", "songs")
                 hero("\(report.artists)", "artists")
                 hero("\(report.totalMinutes / 60)h", "of music")
                 hero(yearsSpan, "collecting")
-            }
-            HStack(spacing: 10) {
+            } }
+            reveal(1) { HStack(spacing: 10) {
                 Text("LIBRARY HEALTH").font(.system(size: 11, design: .rounded).weight(.heavy)).kerning(1.1).foregroundStyle(.secondary)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -118,7 +121,8 @@ struct ReportCard: View {
                     }
                 }.frame(height: 8)
                 Text("\(report.health)/100").font(.system(.caption, design: .rounded).weight(.heavy)).monospacedDigit()
-            }
+                    .contentTransition(.numericText(value: Double(report.health)))
+            } }
             if let line = personality {
                 Text("“\(line)”")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold)).italic()
@@ -127,13 +131,13 @@ struct ReportCard: View {
                     .padding(12)
                     .background(RoundedRectangle(cornerRadius: 12).fill(accent.opacity(0.10)))
             }
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+            reveal(2) { LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 tile("🕳️", report.inNoPlaylist, "in no playlist")
                 tile("💤", report.neverPlayed, "never played")
                 tile("💎", report.forgotten, "forgotten gems")
                 tile("👯", report.duplicates, "duplicates")
-            }
-            if !report.genres.isEmpty {
+            } }
+            if !report.genres.isEmpty { reveal(3) { VStack(alignment: .leading, spacing: 8) {
                 section("GENRES")
                 let maxG = report.genres.first?.count ?? 1
                 VStack(spacing: 7) {
@@ -154,8 +158,8 @@ struct ReportCard: View {
                         .frame(height: 16)
                     }
                 }
-            }
-            if report.decades.count >= 2 {
+            } } }
+            if report.decades.count >= 2 { reveal(4) { VStack(alignment: .leading, spacing: 8) {
                 section("DECADES")
                 let maxD = report.decades.map(\.count).max() ?? 1
                 HStack(alignment: .bottom, spacing: 6) {
@@ -172,8 +176,8 @@ struct ReportCard: View {
                         .frame(maxWidth: .infinity)
                     }
                 }
-            }
-            if !report.topArtists.isEmpty {
+            } } }
+            if !report.topArtists.isEmpty { reveal(5) { VStack(alignment: .leading, spacing: 8) {
                 section("ON HEAVY ROTATION")
                 let maxA = report.topArtists.first?.count ?? 1
                 VStack(spacing: 7) {
@@ -194,7 +198,7 @@ struct ReportCard: View {
                         .frame(height: 16)
                     }
                 }
-            }
+            } } }
             if forExport {
                 Text("Da Capo — play your library again · dacapo.fm")
                     .font(.caption2).foregroundStyle(.secondary)
@@ -204,11 +208,19 @@ struct ReportCard: View {
         .padding(20)
         .background(RoundedRectangle(cornerRadius: 22).fill(Color(.secondarySystemGroupedBackground)))
         .overlay(RoundedRectangle(cornerRadius: 22).stroke(.quaternary))
+        .onAppear { if forExport || reduceMotion { revealed = true } else { withAnimation(.snappy(duration: 0.5)) { revealed = true } } }
+    }
+    /// staggered entrance: each section slides up + fades with a per-index delay
+    func reveal<V: View>(_ i: Double, @ViewBuilder _ v: () -> V) -> some View {
+        v().opacity(revealed ? 1 : 0)
+            .offset(y: revealed ? 0 : 14)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.55).delay(i * 0.07), value: revealed)
     }
     func pct(_ n: Int) -> String { report.total > 0 ? "\(Int(round(Double(n) * 100 / Double(report.total))))%" : "" }
     func hero(_ v: String, _ l: String) -> some View {
         VStack(spacing: 2) {
             Text(v).font(.system(.title2, design: .rounded).weight(.heavy)).monospacedDigit()
+                .contentTransition(.numericText())
             Text(l).font(.system(size: 11)).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity)
     }
@@ -217,6 +229,7 @@ struct ReportCard: View {
             Text(e).font(.title3)
             VStack(alignment: .leading, spacing: 0) {
                 Text("\(n)").font(.system(.headline, design: .rounded).weight(.heavy)).monospacedDigit()
+                    .contentTransition(.numericText(value: Double(n)))
                 Text(l).font(.system(size: 11)).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -408,6 +421,7 @@ struct PlaylistsTab: View {
             }
         }
         .navigationTitle("Playlists")
+        .sensoryFeedback(.success, trigger: model.created.count)
         .sheet(isPresented: $showPaywall) { PaywallView { Task { await model.apply() } } }
         .safeAreaInset(edge: .bottom) {
             if !model.buckets.filter(\.enabled).isEmpty {

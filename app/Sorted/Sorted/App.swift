@@ -28,6 +28,9 @@ struct RootView: View {
             }
         }
         .task {
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.environment["DACAPO_DEMO"] != nil { model.seedDemo(); return }
+            #endif
             // returning user: skip the welcome screen, rescan silently (local + fast)
             if hasScanned && model.stage == .welcome { await model.scan() }
         }
