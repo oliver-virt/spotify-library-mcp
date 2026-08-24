@@ -135,7 +135,6 @@ struct ChatView: View {
     @StateObject var chat = ChatModel()
     @State private var input = ""
     @State private var showPaywall = false
-    @State private var showWork = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -165,7 +164,6 @@ struct ChatView: View {
         }
         .background(CapTheme.bg)
         .sheet(isPresented: $showPaywall) { PaywallView { Task { await applyPlan() } } }
-        .sheet(isPresented: $showWork) { WorkSheet() }
         .onChange(of: lib.created.count) { old, new in if new > old { requestReviewIfEarned() } }
         .preferredColorScheme(.dark)
     }
@@ -175,9 +173,6 @@ struct ChatView: View {
             capAvatar(32)
             Text("Da Capo").font(.system(size: 19, weight: .heavy)).foregroundStyle(CapTheme.ink)
             Spacer()
-            Button { showWork = true } label: {
-                Image(systemName: "archivebox").foregroundStyle(CapTheme.mute).frame(width: 44, height: 44)
-            }
         }
         .padding(.horizontal, 16).padding(.bottom, 6)
         .overlay(alignment: .bottom) { Rectangle().fill(CapTheme.line).frame(height: 1) }
@@ -385,12 +380,30 @@ struct PlanCard: View {
     }
 }
 
-struct WorkSheet: View {
+struct FilesTab: View {
     @EnvironmentObject var lib: LibraryModel
-    @Environment(\.dismiss) var dismiss
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        ScrollView {
+                            ReportCard(report: lib.report, personality: lib.personality)
+                                .padding(16)
+                        }
+                        .background(CapTheme.bg)
+                        .navigationTitle("Library report")
+                        .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Library report").font(.system(size: 15, weight: .semibold))
+                                Text("\(lib.report.total.formatted()) songs · health \(lib.report.health)/100")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
                 if lib.created.isEmpty {
                     Text("Nothing yet — approve a plan and it shows up here.").foregroundStyle(.secondary)
                 } else {
@@ -411,9 +424,7 @@ struct WorkSheet: View {
                     Text("Your own playlists never appear here — Da Capo doesn't touch them.")
                 }
             }
-            .navigationTitle("Cap's work")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+            .navigationTitle("The Files")
         }
     }
 }

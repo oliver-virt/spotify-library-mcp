@@ -18,7 +18,13 @@ struct RootView: View {
     var body: some View {
         Group {
             if model.stage == .main {
-                ChatView()
+                TabView {
+                    ChatView()
+                        .tabItem { Label("Cap", systemImage: "message.fill") }
+                    FilesTab()
+                        .tabItem { Label("The Files", systemImage: "archivebox.fill") }
+                }
+                .preferredColorScheme(.dark)
             } else {
                 NavigationStack { ScanView() }
             }
