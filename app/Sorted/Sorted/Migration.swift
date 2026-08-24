@@ -22,6 +22,7 @@ final class Migration: ObservableObject {
     @Published var playlistsBuilt = 0
     @Published var unmatched: [String] = []
     @Published var finished = UserDefaults.standard.bool(forKey: "dacapo.migrationDone")
+    @Published var fatalError: String?
 
     static var exportAvailable: Bool {
         Bundle.main.url(forResource: "spotify-export", withExtension: "json") != nil
@@ -50,6 +51,27 @@ final class Migration: ObservableObject {
 
         var doneKeys = Set(UserDefaults.standard.stringArray(forKey: "dacapo.mig.done") ?? [])
         var songByKey: [String: Song] = [:]
+        fatalError = nil
+
+        // Preflight: one catalog search with a timeout. If the developer token can't be
+        // minted (MusicKit service missing on the App ID) every search fails — say so once.
+        do {
+            var probe = MusicCatalogSearchRequest(term: "test", types: [Song.self])
+            probe.limit = 1
+            _ = try await withThrowingTaskGroup(of: MusicCatalogSearchResponse?.self) { group in
+                group.addTask { try await probe.response() }
+                group.addTask { try await Task.sleep(for: .seconds(15)); return nil }
+                let first = try await group.next()!
+                group.cancelAll()
+                if first == nil { throw NSError(domain: "dacapo", code: 1, userInfo: [NSLocalizedDescriptionKey: "Catalog search timed out"]) }
+                return first
+            }
+        } catch {
+            fatalError = "Catalog search isn't working: \(error.localizedDescription). This usually means the app's ID doesn't have the MusicKit service enabled yet (developer.apple.com → Identifiers → com.olivervirt.dacapo → App Services → MusicKit), or the network is blocked."
+            return
+        }
+
+        var consecutiveErrors = 0
 
         for (k, t) in uniq {
             defer { done += 1 }
@@ -72,8 +94,13 @@ final class Migration: ObservableObject {
                 } else {
                     unmatched.append("\(t.title) — \(t.artist)")
                 }
+                consecutiveErrors = 0
             } catch {
-                // transient network/rate error: brief backoff, keep going
+                consecutiveErrors += 1
+                if consecutiveErrors >= 8 {
+                    fatalError = "Search keeps failing (\(error.localizedDescription)). Stopped after \(done) — tap the chip to resume once it's fixed."
+                    return
+                }
                 try? await Task.sleep(for: .seconds(2))
             }
             try? await Task.sleep(for: .milliseconds(280))

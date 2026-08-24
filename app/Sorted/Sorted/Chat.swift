@@ -99,6 +99,11 @@ final class ChatModel: ObservableObject {
             chips = []
             await lib.migration.run()
             let m = lib.migration
+            if let err = m.fatalError {
+                cap(err)
+                chips = ["Import my Spotify"]
+                return
+            }
             cap("Done. Matched \(m.matched) of \(m.total) songs, added \(m.addedToLibrary) to your library, rebuilt \(m.playlistsBuilt) playlists.\(m.unmatched.isEmpty ? "" : " \(m.unmatched.count) didn't exist on Apple Music — they're listed in The Files.") Now rescanning…")
             await lib.scan()
             cap("Fresh numbers are in. Ask me anything — this is a real library now.")
