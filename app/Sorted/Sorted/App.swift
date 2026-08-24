@@ -35,6 +35,6 @@ struct RootView: View {
             if hasScanned && model.stage == .welcome { await model.scan() }
         }
         .onChange(of: model.stage) { _, st in if st == .main { hasScanned = true } }
-        .tint(Color(red: 0.83, green: 0.39, blue: 0.10))
+        .tint(Color(red: 0.91, green: 0.27, blue: 0.11))
     }
 }
