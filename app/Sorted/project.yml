@@ -1,6 +1,18 @@
 name: Sorted
+settings:
+  base:
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 1
 options:
   bundleIdPrefix: com.olivervirt
+schemes:
+  Sorted:
+    build:
+      targets:
+        Sorted: all
+    run:
+      config: Debug
+      storeKitConfiguration: Sorted/DaCapo.storekit
 targets:
   Sorted:
     type: application
@@ -11,12 +23,17 @@ targets:
       path: Sorted/Info.plist
       properties:
         NSAppleMusicUsageDescription: "Da Capo reads your music library to organise it into playlists. Nothing leaves your device."
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         CFBundleDisplayName: Da Capo
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.olivervirt.dacapo
         DEVELOPMENT_TEAM: NLP9537CF4
         CODE_SIGN_STYLE: Automatic
-        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
+        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

@@ -1,15 +1,77 @@
 import SwiftUI
+import StoreKit
 
-// MVP paywall. Purchase is a placeholder until the App Store product exists (StoreKit 2 goes here).
-// The "beta" link bypasses it on purpose — remove before App Store submission.
+// StoreKit 2 engine + paywall. One non-consumable: lifetime unlock.
+@MainActor
 final class Entitlements: ObservableObject {
+    static let productID = "com.olivervirt.dacapo.unlock"
+
+    // Offline-grace cache: set true on any verified entitlement; never auto-false.
     @AppStorage("dacapo.unlocked") var unlocked = false
+    @Published var product: Product?
+    @Published var purchasing = false
+    @Published var loadFailed = false
+    private var updatesTask: Task<Void, Never>?
+
+    func start() async {
+        updatesTask = Task { [weak self] in
+            for await update in Transaction.updates {
+                guard let self else { return }
+                if case .verified(let t) = update, t.productID == Self.productID {
+                    await t.finish()
+                    if t.revocationDate == nil { self.unlocked = true }
+                }
+            }
+        }
+        await checkEntitlement()
+        await loadProduct()
+    }
+
+    func checkEntitlement() async {
+        for await entitlement in Transaction.currentEntitlements {
+            if case .verified(let t) = entitlement, t.productID == Self.productID, t.revocationDate == nil {
+                unlocked = true
+            }
+        }
+    }
+
+    func loadProduct() async {
+        loadFailed = false
+        do { product = try await Product.products(for: [Self.productID]).first }
+        catch { loadFailed = true }
+        if product == nil { loadFailed = true }
+    }
+
+    func purchase() async {
+        guard let product, !purchasing else { return }
+        purchasing = true
+        defer { purchasing = false }
+        do {
+            switch try await product.purchase() {
+            case .success(let verification):
+                if case .verified(let t) = verification {
+                    await t.finish()
+                    unlocked = true
+                }
+            case .userCancelled, .pending:
+                break
+            @unknown default:
+                break
+            }
+        } catch { /* transient; user can retry */ }
+    }
+
+    func restore() async {
+        try? await AppStore.sync()
+        await checkEntitlement()
+    }
 }
 
 struct PaywallView: View {
     @EnvironmentObject var ent: Entitlements
     @Environment(\.dismiss) var dismiss
     let onUnlocked: () -> Void
+
     var body: some View {
         VStack(spacing: 0) {
             Capsule().fill(.quaternary).frame(width: 36, height: 5).padding(.top, 10)
@@ -31,17 +93,38 @@ struct PaywallView: View {
                 }
                 .padding(.top, 4)
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("$6.99").font(.system(size: 44, weight: .black)).tracking(-1)
-                    Text("ONCE. NOT PER MONTH. ONCE.").font(.system(size: 9, weight: .heavy)).tracking(1).foregroundStyle(Swiss.ink.opacity(0.5))
+                    if let p = ent.product {
+                        Text(p.displayPrice).font(.system(size: 44, weight: .black)).tracking(-1)
+                        Text("ONCE. NOT PER MONTH.").font(.system(size: 9, weight: .heavy)).tracking(1).foregroundStyle(Swiss.ink.opacity(0.5))
+                    } else if ent.loadFailed {
+                        Button { Task { await ent.loadProduct() } } label: {
+                            Text("Couldn't load the price — tap to retry")
+                                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Swiss.red)
+                        }
+                        .padding(.vertical, 12)
+                    } else {
+                        ProgressView().tint(Swiss.ink).padding(.vertical, 14)
+                    }
                 }
                 .padding(.top, 16)
-                // TODO: StoreKit 2 purchase of com.olivervirt.dacapo.unlock
-                SwissButton(title: "UNLOCK") { ent.unlocked = true; dismiss(); onUnlocked() }
-                    .padding(.top, 14)
+                SwissButton(title: ent.purchasing ? "…" : "UNLOCK", disabled: ent.product == nil || ent.purchasing) {
+                    Task {
+                        await ent.purchase()
+                        if ent.unlocked { dismiss(); onUnlocked() }
+                    }
+                }
+                .padding(.top, 14)
                 HStack {
-                    Button("Restore purchase") { /* TODO StoreKit 2 restore */ }
+                    Button("Restore purchase") {
+                        Task {
+                            await ent.restore()
+                            if ent.unlocked { dismiss(); onUnlocked() }
+                        }
+                    }
                     Spacer()
-                    Button("Continue free (beta)") { ent.unlocked = true; dismiss(); onUnlocked() }
+                    #if DEBUG
+                    Button("Continue free (debug)") { ent.unlocked = true; dismiss(); onUnlocked() }
+                    #endif
                 }
                 .font(.system(size: 12, weight: .semibold)).tint(Swiss.ink.opacity(0.55))
                 .padding(.top, 14)

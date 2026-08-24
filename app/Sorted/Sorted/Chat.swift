@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 // Chat-first shell. Chips are deterministic intents on LibraryModel — no AI needed.
 // Free-text is a stub until the Foundation Models layer lands.
@@ -122,6 +123,7 @@ struct ChatView: View {
         .background(CapTheme.bg)
         .sheet(isPresented: $showPaywall) { PaywallView { Task { await applyPlan() } } }
         .sheet(isPresented: $showWork) { WorkSheet() }
+        .onChange(of: lib.created.count) { old, new in if new > old { requestReviewIfEarned() } }
         .preferredColorScheme(.dark)
     }
 
@@ -193,6 +195,16 @@ struct ChatView: View {
     func applyPlan() async {
         await lib.apply()
         chat.cap("Done. \(lib.created.count) playlists are in Apple Music. Re-ask any time — they refresh, never duplicate.")
+        requestReviewIfEarned()
+    }
+
+    /// Ask for a rating at the value moment (first successful apply), never at the paywall.
+    func requestReviewIfEarned() {
+        guard !lib.created.isEmpty, !UserDefaults.standard.bool(forKey: "dacapo.reviewAsked") else { return }
+        UserDefaults.standard.set(true, forKey: "dacapo.reviewAsked")
+        if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+            AppStore.requestReview(in: scene)
+        }
     }
 }
 
@@ -228,6 +240,7 @@ struct MsgView: View {
         case .report:
             ReportCard(report: lib.report, personality: lib.personality, forExport: false)
                 .frame(width: 300).padding(.leading, 38)
+                .task { await lib.makePersonality() }
         case .rediscover(let tracks):
             PaperCard(title: "FORGOTTEN", right: "\(tracks.count) PICKS") {
                 ForEach(tracks) { t in

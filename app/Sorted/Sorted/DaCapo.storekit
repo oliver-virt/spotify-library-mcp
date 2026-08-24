@@ -1,0 +1,24 @@
+{
+  "identifier" : "D0C0FFEE-0000-4000-8000-000000000001",
+  "nonRenewingSubscriptions" : [ ],
+  "products" : [
+    {
+      "displayPrice" : "6.99",
+      "familyShareable" : false,
+      "internalID" : "D0C0FFEE-0000-4000-8000-000000000002",
+      "localizations" : [
+        {
+          "description" : "Every playlist in your plan. One purchase, forever.",
+          "displayName" : "Da Capo Lifetime",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.olivervirt.dacapo.unlock",
+      "referenceName" : "Lifetime Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : { },
+  "subscriptionGroups" : [ ],
+  "version" : { "major" : 3, "minor" : 0 }
+}

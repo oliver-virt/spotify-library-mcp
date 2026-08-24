@@ -13,6 +13,7 @@ struct SortedApp: App {
 
 struct RootView: View {
     @EnvironmentObject var model: LibraryModel
+    @EnvironmentObject var ent: Entitlements
     @AppStorage("dacapo.hasScanned") var hasScanned = false
     var body: some View {
         Group {
@@ -22,6 +23,7 @@ struct RootView: View {
                 NavigationStack { ScanView() }
             }
         }
+        .task { await ent.start() }
         .task {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.environment["DACAPO_DEMO"] != nil { model.seedDemo(); return }
