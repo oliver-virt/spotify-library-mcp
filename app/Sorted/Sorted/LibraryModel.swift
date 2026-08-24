@@ -7,6 +7,7 @@ struct Track: Identifiable, Hashable {
     let title: String
     let artist: String
     let genre: String
+    let album: String
     let playCount: Int
     let skipCount: Int
     let added: Date?
@@ -32,18 +33,52 @@ struct Bucket: Identifiable {
     enum Kind { case genre, mood, decade, favorites, rediscover, onRepeat, duplicates }
 }
 
-struct Report {
+struct Pair: Codable, Hashable { let name: String; let count: Int }
+
+struct Report: Codable {
     var total = 0
     var artists = 0
-    var genres: [(String, Int)] = []
-    var decades: [(String, Int)] = []
-    var topArtists: [(String, Int)] = []
+    var genres: [Pair] = []
+    var decades: [Pair] = []
+    var topArtists: [Pair] = []
     var neverPlayed = 0
     var forgotten = 0
     var duplicates = 0
     var inNoPlaylist = 0
     var oldestAdd: Date?
     var totalMinutes = 0
+    var scannedAt = Date.distantPast
+    var dupeExamples: [DupeExample] = []
+
+    /// 0–100: how organised the library is. Filed 40%, dedup 30%, actually-played 30%.
+    var health: Int {
+        guard total > 0 else { return 0 }
+        let filed = 1 - Double(inNoPlaylist) / Double(total)
+        let dedup = 1 - Double(duplicates) / Double(total)
+        let played = 1 - Double(neverPlayed) / Double(total)
+        return Int((0.4 * filed + 0.3 * dedup + 0.3 * played) * 100)
+    }
+    /// Health if the user applies the plan: everything filed, duplicates handled.
+    var projectedHealth: Int {
+        guard total > 0 else { return 0 }
+        let played = 1 - Double(neverPlayed) / Double(total)
+        return Int((0.4 + 0.3 + 0.3 * played) * 100)
+    }
+    static func load() -> Report? {
+        guard let d = UserDefaults.standard.data(forKey: "dacapo.report") else { return nil }
+        return try? JSONDecoder().decode(Report.self, from: d)
+    }
+    func save() { UserDefaults.standard.set(try? JSONEncoder().encode(self), forKey: "dacapo.report") }
+}
+
+struct DupeExample: Codable, Hashable, Identifiable {
+    var id: String { "\(artist)|\(title)|\(albumA)|\(albumB)" }
+    let title: String, artist: String, albumA: String, albumB: String
+}
+
+struct Delta {
+    let songs: Int, duplicates: Int, unfiled: Int, healthFrom: Int, healthTo: Int, since: Date
+    var isEmpty: Bool { songs == 0 && duplicates == 0 && unfiled == 0 && healthFrom == healthTo }
 }
 
 @MainActor
@@ -53,6 +88,11 @@ final class LibraryModel: ObservableObject {
     @Published var scanStatus = ""
     @Published var tracks: [Track] = []
     @Published var report = Report()
+    @Published var delta: Delta?
+
+    init() {
+        if let saved = Report.load() { report = saved; stage = .main }
+    }
     @Published var buckets: [Bucket] = []
     @Published var applyLog: [String] = []
     @Published var applying = false
@@ -63,7 +103,8 @@ final class LibraryModel: ObservableObject {
     @Published var personality: String?
 
     func scan() async {
-        stage = .scanning
+        let silent = stage == .main            // returning user: keep showing the cached card
+        if !silent { stage = .scanning }
         errorText = nil
         let auth = await MusicAuthorization.request()
         guard auth == .authorized else {
@@ -95,6 +136,7 @@ final class LibraryModel: ObservableObject {
                     collected.append(Track(
                         id: s.id.rawValue, title: s.title, artist: s.artistName,
                         genre: m?.genre ?? s.genreNames.first ?? "",
+                        album: s.albumTitle ?? "",
                         playCount: m?.playCount ?? s.playCount ?? 0,
                         skipCount: m?.skipCount ?? 0,
                         added: m?.dateAdded ?? s.libraryAddedDate,
@@ -116,15 +158,24 @@ final class LibraryModel: ObservableObject {
         }
         tracks = collected
         scanStatus = "Analysing…"
+        let previous = report.scannedAt > .distantPast ? report : nil
         computeReport(inPlaylists: inPlaylists, meta: meta, durations: durations)
+        report.scannedAt = .now
+        report.save()
+        if let p = previous {
+            let d = Delta(songs: report.total - p.total, duplicates: report.duplicates - p.duplicates,
+                          unfiled: report.inNoPlaylist - p.inNoPlaylist, healthFrom: p.health, healthTo: report.health,
+                          since: p.scannedAt)
+            delta = d.isEmpty ? nil : d
+        }
         buildPlan()
         stage = .main
     }
 
     func makePersonality() async {
         guard MoodClassifier.isAvailable, personality == nil else { return }
-        let g = report.genres.prefix(3).map { "\($0.0) \(Int(round(Double($0.1) * 100 / Double(max(report.total, 1)))))%" }.joined(separator: ", ")
-        let facts = "Top artist: \(report.topArtists.first?.0 ?? "?") (\(report.topArtists.first?.1 ?? 0) songs). Genres: \(g). \(report.neverPlayed) of \(report.total) never played. Decades: \(report.decades.map { "\($0.0):\($0.1)" }.joined(separator: " "))."
+        let g = report.genres.prefix(3).map { "\($0.name) \(Int(round(Double($0.count) * 100 / Double(max(report.total, 1)))))%" }.joined(separator: ", ")
+        let facts = "Top artist: \(report.topArtists.first?.name ?? "?") (\(report.topArtists.first?.count ?? 0) songs). Genres: \(g). \(report.neverPlayed) of \(report.total) never played. Decades: \(report.decades.map { "\($0.name):\($0.count)" }.joined(separator: " "))."
         personality = await MoodClassifier.oneLiner(facts: facts)
     }
 
@@ -132,27 +183,36 @@ final class LibraryModel: ObservableObject {
         var r = Report()
         r.total = tracks.count
         var artistCount: [String: Int] = [:], genreCount: [String: Int] = [:]
-        var seen: Set<String> = []
+        var seen: [String: Track] = [:]
         let yearAgo = Calendar.current.date(byAdding: .year, value: -1, to: .now)!
         var secs: TimeInterval = 0
+        var examples: [DupeExample] = []
         for t in tracks {
             artistCount[t.artist, default: 0] += 1
             let g = t.genre.isEmpty ? "Unknown" : t.genre
             genreCount[g, default: 0] += 1
             if t.playCount == 0 { r.neverPlayed += 1 }
             if let a = t.added, a < yearAgo, t.playCount <= 1 { r.forgotten += 1 }
-            if seen.contains(t.key) { r.duplicates += 1 } else { seen.insert(t.key) }
+            if let first = seen[t.key] {
+                r.duplicates += 1
+                if examples.count < 30 {
+                    examples.append(DupeExample(title: t.title, artist: t.artist,
+                        albumA: first.album.isEmpty ? "your library" : first.album,
+                        albumB: t.album.isEmpty ? "another release" : t.album))
+                }
+            } else { seen[t.key] = t }
             if let m = meta[t.key], !inPlaylists.contains(m.persistentID) { r.inNoPlaylist += 1 }
             secs += durations[t.key] ?? 0
             if let a = t.added, r.oldestAdd == nil || a < r.oldestAdd! { r.oldestAdd = a }
         }
         var decadeCount: [Int: Int] = [:]
         for t in tracks where t.year >= 1950 { decadeCount[(t.year / 10) * 10, default: 0] += 1 }
-        r.decades = decadeCount.sorted { $0.key < $1.key }.map { ("\($0.key % 100)s", $0.value) }
+        r.decades = decadeCount.sorted { $0.key < $1.key }.map { Pair(name: "\($0.key % 100)s", count: $0.value) }
         r.artists = artistCount.count
-        r.topArtists = artistCount.sorted { $0.value > $1.value }.prefix(5).map { ($0.key, $0.value) }
-        r.genres = genreCount.sorted { $0.value > $1.value }.prefix(6).map { ($0.key, $0.value) }
+        r.topArtists = artistCount.sorted { $0.value > $1.value }.prefix(5).map { Pair(name: $0.key, count: $0.value) }
+        r.genres = genreCount.sorted { $0.value > $1.value }.prefix(6).map { Pair(name: $0.key, count: $0.value) }
         r.totalMinutes = Int(secs / 60)
+        r.dupeExamples = examples
         report = r
     }
 

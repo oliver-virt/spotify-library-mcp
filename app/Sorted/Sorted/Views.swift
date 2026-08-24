@@ -34,11 +34,22 @@ struct ScanView: View {
 
 struct ReportView: View {
     @EnvironmentObject var model: LibraryModel
+    @State private var showDupes = false
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if let d = model.delta {
+                    DeltaBanner(d: d).padding(.horizontal)
+                }
                 ReportCard(report: model.report, personality: model.personality).padding(.horizontal)
                     .task { await model.makePersonality() }
+                if !model.report.dupeExamples.isEmpty {
+                    Button { showDupes = true } label: {
+                        Label("See your \(model.report.duplicates) duplicates", systemImage: "doc.on.doc")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered).padding(.horizontal)
+                }
                 ShareLink(item: renderCard(), preview: SharePreview("My library, diagnosed", image: renderCard())) {
                     Label("Share report card", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
                 }
@@ -49,6 +60,7 @@ struct ReportView: View {
         .navigationTitle("Your library")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await model.scan() }
+        .sheet(isPresented: $showDupes) { DupesSheet(report: model.report) }
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
             Button { Task { await model.scan() } } label: { Image(systemName: "arrow.clockwise") }
         } }
@@ -85,6 +97,16 @@ struct ReportCard: View {
                 hero("\(report.totalMinutes / 60)h", "of music")
                 hero(yearsSpan, "collecting")
             }
+            HStack(spacing: 10) {
+                Text("LIBRARY HEALTH").font(.system(size: 11, design: .rounded).weight(.heavy)).kerning(1.1).foregroundStyle(.secondary)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color(.tertiarySystemGroupedBackground))
+                        Capsule().fill(accent).frame(width: max(8, geo.size.width * CGFloat(report.health) / 100))
+                    }
+                }.frame(height: 8)
+                Text("\(report.health)/100").font(.system(.caption, design: .rounded).weight(.heavy)).monospacedDigit()
+            }
             if let line = personality {
                 Text("“\(line)”")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold)).italic()
@@ -101,19 +123,19 @@ struct ReportCard: View {
             }
             if !report.genres.isEmpty {
                 section("GENRES")
-                let maxG = report.genres.first?.1 ?? 1
+                let maxG = report.genres.first?.count ?? 1
                 VStack(spacing: 7) {
-                    ForEach(report.genres.prefix(5), id: \.0) { g in
+                    ForEach(report.genres.prefix(5), id: \.name) { g in
                         HStack(spacing: 8) {
-                            Text(g.0).font(.system(.caption, design: .rounded).weight(.semibold))
+                            Text(g.name).font(.system(.caption, design: .rounded).weight(.semibold))
                                 .frame(width: 92, alignment: .leading).lineLimit(1)
                             GeometryReader { geo in
                                 RoundedRectangle(cornerRadius: 3)
                                     .fill(accent)
-                                    .frame(width: max(6, geo.size.width * CGFloat(g.1) / CGFloat(maxG)), height: 8)
+                                    .frame(width: max(6, geo.size.width * CGFloat(g.count) / CGFloat(maxG)), height: 8)
                                     .frame(maxHeight: .infinity, alignment: .center)
                             }
-                            Text(pct(g.1)).font(.system(.caption2, design: .rounded).weight(.bold))
+                            Text(pct(g.count)).font(.system(.caption2, design: .rounded).weight(.bold))
                                 .foregroundStyle(.secondary).frame(width: 36, alignment: .trailing)
                                 .monospacedDigit()
                         }
@@ -123,16 +145,16 @@ struct ReportCard: View {
             }
             if report.decades.count >= 2 {
                 section("DECADES")
-                let maxD = report.decades.map(\.1).max() ?? 1
+                let maxD = report.decades.map(\.count).max() ?? 1
                 HStack(alignment: .bottom, spacing: 6) {
-                    ForEach(report.decades, id: \.0) { d in
+                    ForEach(report.decades, id: \.name) { d in
                         VStack(spacing: 4) {
-                            Text("\(d.1)").font(.system(size: 9, design: .rounded).weight(.bold))
+                            Text("\(d.count)").font(.system(size: 9, design: .rounded).weight(.bold))
                                 .foregroundStyle(.secondary).monospacedDigit()
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(accent.opacity(0.85))
-                                .frame(height: max(6, 52 * CGFloat(d.1) / CGFloat(maxD)))
-                            Text(d.0).font(.system(size: 10, design: .rounded).weight(.semibold))
+                                .frame(height: max(6, 52 * CGFloat(d.count) / CGFloat(maxD)))
+                            Text(d.name).font(.system(size: 10, design: .rounded).weight(.semibold))
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -141,19 +163,19 @@ struct ReportCard: View {
             }
             if !report.topArtists.isEmpty {
                 section("ON HEAVY ROTATION")
-                let maxA = report.topArtists.first?.1 ?? 1
+                let maxA = report.topArtists.first?.count ?? 1
                 VStack(spacing: 7) {
-                    ForEach(report.topArtists.prefix(5), id: \.0) { a in
+                    ForEach(report.topArtists.prefix(5), id: \.name) { a in
                         HStack(spacing: 8) {
-                            Text(a.0).font(.system(.caption, design: .rounded).weight(.semibold))
+                            Text(a.name).font(.system(.caption, design: .rounded).weight(.semibold))
                                 .frame(width: 110, alignment: .leading).lineLimit(1)
                             GeometryReader { geo in
                                 RoundedRectangle(cornerRadius: 3)
                                     .fill(accent.opacity(0.55))
-                                    .frame(width: max(6, geo.size.width * CGFloat(a.1) / CGFloat(maxA)), height: 8)
+                                    .frame(width: max(6, geo.size.width * CGFloat(a.count) / CGFloat(maxA)), height: 8)
                                     .frame(maxHeight: .infinity, alignment: .center)
                             }
-                            Text("\(a.1)").font(.system(.caption2, design: .rounded).weight(.bold))
+                            Text("\(a.count)").font(.system(.caption2, design: .rounded).weight(.bold))
                                 .foregroundStyle(.secondary).frame(width: 28, alignment: .trailing)
                                 .monospacedDigit()
                         }
@@ -192,6 +214,65 @@ struct ReportCard: View {
     }
     func section(_ t: String) -> some View {
         Text(t).font(.system(size: 11, design: .rounded).weight(.heavy)).kerning(1.1).foregroundStyle(.secondary)
+    }
+}
+
+struct DupesSheet: View {
+    let report: Report
+    @Environment(\.dismiss) var dismiss
+    private let accent = Color(red: 0.83, green: 0.39, blue: 0.10)
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(report.dupeExamples) { d in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("\(d.title) — \(d.artist)").font(.headline)
+                            HStack(spacing: 6) {
+                                Text(d.albumA).lineLimit(1)
+                                Image(systemName: "plus").font(.caption2)
+                                Text(d.albumB).lineLimit(1)
+                            }
+                            .font(.caption).foregroundStyle(.secondary)
+                            Text("same song · two releases").font(.caption2).foregroundStyle(accent)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                } header: {
+                    Text("You didn't add these twice — Apple's catalog did")
+                } footer: {
+                    Text("Create the 🗑️ Review & Delete playlist and these land in one place. Open it in Music, select all, delete — a minute, not an afternoon.")
+                }
+            }
+            .navigationTitle("Your duplicates")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
+struct DeltaBanner: View {
+    let d: Delta
+    private let accent = Color(red: 0.83, green: 0.39, blue: 0.10)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("SINCE \(d.since.formatted(date: .abbreviated, time: .omitted).uppercased())")
+                .font(.system(size: 10, design: .rounded).weight(.heavy)).kerning(1).foregroundStyle(.secondary)
+            HStack(spacing: 14) {
+                if d.songs != 0 { chip(d.songs > 0 ? "+\(d.songs) songs" : "\(d.songs) songs") }
+                if d.duplicates > 0 { chip("+\(d.duplicates) duplicates") }
+                if d.unfiled != 0 { chip(d.unfiled > 0 ? "+\(d.unfiled) unfiled" : "\(-d.unfiled) filed ✓") }
+                if d.healthFrom != d.healthTo {
+                    chip("health \(d.healthFrom) → \(d.healthTo) \(d.healthTo > d.healthFrom ? "📈" : "📉")")
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 16).fill(accent.opacity(0.10)))
+    }
+    func chip(_ t: String) -> some View {
+        Text(t).font(.system(.caption, design: .rounded).weight(.bold)).foregroundStyle(accent)
     }
 }
 
@@ -257,6 +338,15 @@ struct PlaylistsTab: View {
         .sheet(isPresented: $showPaywall) { PaywallView { Task { await model.apply() } } }
         .safeAreaInset(edge: .bottom) {
             if !model.buckets.filter(\.enabled).isEmpty {
+              VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Text("Health \(model.report.health)").fontWeight(.bold)
+                    Image(systemName: "arrow.right")
+                    Text("\(model.report.projectedHealth)").fontWeight(.heavy).foregroundStyle(Color(red: 0.83, green: 0.39, blue: 0.10))
+                    Text("· \(model.report.inNoPlaylist) unfiled → 0 · \(model.report.duplicates) dupes queued")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.system(.caption, design: .rounded))
                 Button {
                     if ent.unlocked { Task { await model.apply() } } else { showPaywall = true }
                 } label: {
@@ -266,8 +356,10 @@ struct PlaylistsTab: View {
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 6)
                 }
-                .buttonStyle(.borderedProminent).disabled(model.applying).padding()
-                .background(.bar)
+                .buttonStyle(.borderedProminent).disabled(model.applying)
+              }
+              .padding()
+              .background(.bar)
             }
         }
     }
