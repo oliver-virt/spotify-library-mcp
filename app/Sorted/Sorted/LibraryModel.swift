@@ -30,6 +30,8 @@ struct Bucket: Identifiable {
     var tracks: [Track]
     var enabled = true
     var kind: Kind
+    var countOverride: Int? = nil
+    var displayCount: Int { countOverride ?? tracks.count }
     enum Kind { case genre, mood, decade, favorites, rediscover, onRepeat, duplicates }
 }
 
@@ -306,6 +308,28 @@ final class LibraryModel: ObservableObject {
         buckets.insert(contentsOf: newBuckets, at: insertAt)
         moodProgress = nil
         moodsAdded = true
+    }
+
+    func rediscoverList() -> [Track] {
+        let yearAgo = Calendar.current.date(byAdding: .year, value: -1, to: .now)!
+        var perArtist: [String: Int] = [:]
+        var out: [Track] = []
+        for t in tracks.filter({ ($0.added ?? .now) < yearAgo && $0.playCount <= 1 })
+            .sorted(by: { ($0.added ?? .now) < ($1.added ?? .now) }) {
+            if perArtist[t.artist, default: 0] < 3 { perArtist[t.artist, default: 0] += 1; out.append(t) }
+        }
+        return out
+    }
+
+    func applyRediscoverOnly() async {
+        let saved = buckets
+        buckets = buckets.filter { $0.kind == .rediscover }
+        if buckets.isEmpty {
+            let r = rediscoverList()
+            if !r.isEmpty { buckets = [Bucket(name: "Rediscover", emoji: "💎", tracks: Array(r.prefix(100)), kind: .rediscover)] }
+        }
+        await apply()
+        buckets = saved.filter { b in b.kind != .rediscover }
     }
 
     func apply() async {

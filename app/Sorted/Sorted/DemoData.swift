@@ -24,12 +24,12 @@ extension LibraryModel {
         personality = "Nine years of rock devotion, gently interrupted by 2 a.m. Kendrick phases."
         delta = Delta(songs: 12, duplicates: 2, unfiled: -3, healthFrom: 61, healthTo: 64, since: Calendar.current.date(byAdding: .day, value: -8, to: .now)!)
         buckets = [
-            Bucket(name: "Rock", emoji: "🎸", tracks: [], kind: .genre),
-            Bucket(name: "Hip-Hop", emoji: "🎤", tracks: [], kind: .genre),
-            Bucket(name: "90s", emoji: "📼", tracks: [], kind: .decade),
-            Bucket(name: "Real Favorites", emoji: "❤️", tracks: [], kind: .favorites),
-            Bucket(name: "Rediscover", emoji: "💎", tracks: [], kind: .rediscover),
-            Bucket(name: "Review & Delete", emoji: "🗑️", tracks: [], kind: .duplicates),
+            Bucket(name: "Rock", emoji: "🎸", tracks: [], kind: .genre, countOverride: 2918),
+            Bucket(name: "Hip-Hop", emoji: "🎤", tracks: [], kind: .genre, countOverride: 2071),
+            Bucket(name: "90s", emoji: "📼", tracks: [], kind: .decade, countOverride: 1420),
+            Bucket(name: "Real Favorites", emoji: "❤️", tracks: [], kind: .favorites, countOverride: 75),
+            Bucket(name: "Rediscover", emoji: "💎", tracks: [], kind: .rediscover, countOverride: 247),
+            Bucket(name: "Review & Delete", emoji: "🗑️", tracks: [], kind: .duplicates, countOverride: 312),
         ]
         created = [CreatedPlaylist(name: "⚡ Workout", count: 214, date: Calendar.current.date(byAdding: .day, value: -8, to: .now)!)]
         userPlaylists = [UserPlaylist(name: "gym 2022", count: 118), UserPlaylist(name: "chill vibes", count: 74), UserPlaylist(name: "roadtrip!!", count: 61), UserPlaylist(name: "old but gold", count: 33)]

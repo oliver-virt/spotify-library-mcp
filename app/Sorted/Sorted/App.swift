@@ -17,12 +17,7 @@ struct RootView: View {
     var body: some View {
         Group {
             if model.stage == .main {
-                TabView {
-                    NavigationStack { ReportView() }
-                        .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
-                    NavigationStack { PlaylistsTab() }
-                        .tabItem { Label("Playlists", systemImage: "music.note.list") }
-                }
+                ChatView()
             } else {
                 NavigationStack { ScanView() }
             }

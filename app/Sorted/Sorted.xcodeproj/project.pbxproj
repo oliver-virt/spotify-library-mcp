@@ -13,6 +13,7 @@
 		65959D353C24A09927D43EE8 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46FBB40D3C54648C70C5C7C /* App.swift */; };
 		8583CF052E3B2BC7022E39E0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */; };
 		C2D573EA760D3D21A279AE14 /* Paywall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8C1D49889BEC4C0A08A8A2 /* Paywall.swift */; };
+		CCB4216FBD113A595FACAE40 /* Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */; };
 		D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238946DFD6280AD363D02F94 /* MoodClassifier.swift */; };
 /* End PBXBuildFile section */
 
@@ -21,6 +22,7 @@
 		1E8C1D49889BEC4C0A08A8A2 /* Paywall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Paywall.swift; sourceTree = "<group>"; };
 		238946DFD6280AD363D02F94 /* MoodClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodClassifier.swift; sourceTree = "<group>"; };
 		2C9377A33ECC3AE45B879682 /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
+		3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
 		6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B405BEDF44C30C0AFA24792F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C46FBB40D3C54648C70C5C7C /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
@@ -50,6 +52,7 @@
 			children = (
 				C46FBB40D3C54648C70C5C7C /* App.swift */,
 				6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */,
+				3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */,
 				2C9377A33ECC3AE45B879682 /* DemoData.swift */,
 				B405BEDF44C30C0AFA24792F /* Info.plist */,
 				D13439C1D8D5861296DC82E4 /* LibraryModel.swift */,
@@ -132,6 +135,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				65959D353C24A09927D43EE8 /* App.swift in Sources */,
+				CCB4216FBD113A595FACAE40 /* Chat.swift in Sources */,
 				4392A920F33D753420E4624E /* DemoData.swift in Sources */,
 				3E37D83FD9EEA1BC873ADE9F /* LibraryModel.swift in Sources */,
 				D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */,
