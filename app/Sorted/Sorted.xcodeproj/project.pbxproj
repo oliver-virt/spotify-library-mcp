@@ -14,8 +14,10 @@
 		8583CF052E3B2BC7022E39E0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */; };
 		8595BC6B3B92DEBB17167CFE /* Migration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 974355B0AB3AE52AA69C8457 /* Migration.swift */; };
 		9ADE1DB8A42C80C9526437C7 /* DaCapo.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 1EE01C509E3E1CDB7E0314BD /* DaCapo.storekit */; };
+		9DE2E8BAA90A6BDEBEC72743 /* JobsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA99875DDFD4DD2F6947FF5 /* JobsView.swift */; };
 		BBA35268946842058203F16C /* Diag.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD03C0CD0AC5F2F2F7918C8 /* Diag.swift */; };
 		C2D573EA760D3D21A279AE14 /* Paywall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8C1D49889BEC4C0A08A8A2 /* Paywall.swift */; };
+		C42DD72893E50A5701A33107 /* Discovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C8A02DCA29B7C0CAADF053E /* Discovery.swift */; };
 		CCB4216FBD113A595FACAE40 /* Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */; };
 		D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238946DFD6280AD363D02F94 /* MoodClassifier.swift */; };
 		EF1A58B5495842291C9CADE9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = ED81A0500D285C616ABB9F76 /* PrivacyInfo.xcprivacy */; };
@@ -29,7 +31,9 @@
 		238946DFD6280AD363D02F94 /* MoodClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodClassifier.swift; sourceTree = "<group>"; };
 		2C9377A33ECC3AE45B879682 /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
+		5BA99875DDFD4DD2F6947FF5 /* JobsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobsView.swift; sourceTree = "<group>"; };
 		6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8C8A02DCA29B7C0CAADF053E /* Discovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Discovery.swift; sourceTree = "<group>"; };
 		974355B0AB3AE52AA69C8457 /* Migration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Migration.swift; sourceTree = "<group>"; };
 		B405BEDF44C30C0AFA24792F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C46FBB40D3C54648C70C5C7C /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
@@ -66,7 +70,9 @@
 				1EE01C509E3E1CDB7E0314BD /* DaCapo.storekit */,
 				2C9377A33ECC3AE45B879682 /* DemoData.swift */,
 				FDD03C0CD0AC5F2F2F7918C8 /* Diag.swift */,
+				8C8A02DCA29B7C0CAADF053E /* Discovery.swift */,
 				B405BEDF44C30C0AFA24792F /* Info.plist */,
+				5BA99875DDFD4DD2F6947FF5 /* JobsView.swift */,
 				D13439C1D8D5861296DC82E4 /* LibraryModel.swift */,
 				974355B0AB3AE52AA69C8457 /* Migration.swift */,
 				238946DFD6280AD363D02F94 /* MoodClassifier.swift */,
@@ -156,6 +162,8 @@
 				CCB4216FBD113A595FACAE40 /* Chat.swift in Sources */,
 				4392A920F33D753420E4624E /* DemoData.swift in Sources */,
 				BBA35268946842058203F16C /* Diag.swift in Sources */,
+				C42DD72893E50A5701A33107 /* Discovery.swift in Sources */,
+				9DE2E8BAA90A6BDEBEC72743 /* JobsView.swift in Sources */,
 				3E37D83FD9EEA1BC873ADE9F /* LibraryModel.swift in Sources */,
 				8595BC6B3B92DEBB17167CFE /* Migration.swift in Sources */,
 				D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */,

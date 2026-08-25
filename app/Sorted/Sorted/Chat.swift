@@ -18,6 +18,7 @@ enum CapTheme {
 struct ChatMsg: Identifiable {
     enum Kind {
         case migration
+        case discovery([NewSong])
         case user(String)
         case cap(String)
         case plan
@@ -35,7 +36,7 @@ final class ChatModel: ObservableObject {
     @Published var thinking = false
     @Published var chips: [String] = ChatModel.homeChips
     static var homeChips: [String] {
-        var c = ["Sort my library", "Find duplicates", "What did I forget?", "How do I listen?"]
+        var c = ["Sort my library", "Find me something new", "Find duplicates", "What did I forget?", "How do I listen?"]
         if Migration.exportAvailable && !UserDefaults.standard.bool(forKey: "dacapo.migrationDone") {
             c.insert("Import my Spotify", at: 0)
         }
@@ -108,6 +109,17 @@ final class ChatModel: ObservableObject {
             await lib.scan()
             cap("Fresh numbers are in. Ask me anything — this is a real library now.")
             chips = ["How do I listen?", "Sort my library"]
+        case "Find me something new":
+            cap("Let me see what Apple has for you that you don't already own.")
+            await lib.discovery.run(owned: lib.ownedKeys())
+            if let e = lib.discovery.errorText { cap(e); chips = Self.homeChips; return }
+            let picks = lib.discovery.found
+            if picks.isEmpty { cap("Nothing new worth your time right now — you already own most of what it suggested.") }
+            else {
+                cap("\(picks.count) songs you don't have. Approve and I'll add them and make a playlist.")
+                messages.append(ChatMsg(kind: .discovery(Array(picks.prefix(20)))))
+            }
+            chips = ["Sort my library", "How do I listen?"]
         case "Sort my library":
             let never = lib.report.neverPlayed
             cap("Done reading. \(lib.report.total.formatted()) songs\(never > 0 ? ", and \(never.formatted()) you have never played" : ""). Here is what I suggest:")
@@ -155,6 +167,7 @@ struct ChatView: View {
     @EnvironmentObject var lib: LibraryModel
     @EnvironmentObject var ent: Entitlements
     @StateObject var chat = ChatModel()
+    @EnvironmentObject var router: Router
     @State private var input = ""
     @State private var showPaywall = false
 
@@ -186,6 +199,9 @@ struct ChatView: View {
         }
         .background(CapTheme.bg)
         .sheet(isPresented: $showPaywall) { PaywallView { Task { await applyPlan() } } }
+        .onChange(of: router.pending) { _, new in
+            if let intent = new { router.pending = nil; Task { await chat.run(intent, lib: lib) } }
+        }
         .onChange(of: lib.created.count) { old, new in if new > old { requestReviewIfEarned() } }
         .preferredColorScheme(.dark)
     }
@@ -327,6 +343,9 @@ struct MsgView: View {
             .padding(.leading, 38)
         case .migration:
             MigrationCard(m: lib.migration).padding(.leading, 38)
+        case .discovery(let picks):
+            DiscoveryCard(picks: picks)
+                .padding(.leading, 38)
         case .dupes:
             PaperCard(title: "DUPLICATES", right: "\(lib.report.duplicates)") {
                 ForEach(lib.report.dupeExamples.prefix(5)) { d in
@@ -340,6 +359,46 @@ struct MsgView: View {
                     .font(.system(size: 11)).foregroundStyle(CapTheme.paperInk.opacity(0.6)).padding(.top, 6)
             }
             .padding(.leading, 38)
+        }
+    }
+}
+
+struct DiscoveryCard: View {
+    @EnvironmentObject var lib: LibraryModel
+    let picks: [NewSong]
+    @State private var added: Int?
+    @State private var working = false
+    var body: some View {
+        PaperCard(title: "NEW FOR YOU", right: added == nil ? "\(picks.count) SONGS" : "ADDED") {
+            ForEach(picks.prefix(8)) { p in
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(p.title) — \(p.artist)").font(.system(size: 13, weight: .bold)).lineLimit(1)
+                    Text(p.reason).font(.system(size: 10.5)).foregroundStyle(CapTheme.paperInk.opacity(0.55)).lineLimit(1)
+                }
+                .padding(.vertical, 3)
+            }
+            if picks.count > 8 {
+                Text("+ \(picks.count - 8) more").font(.system(size: 11)).foregroundStyle(CapTheme.paperInk.opacity(0.55)).padding(.top, 2)
+            }
+            if let added {
+                Text("Added \(added) songs to your library and ✨ New for you.")
+                    .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(CapTheme.paperInk.opacity(0.7)).padding(.top, 8)
+            } else {
+                Button {
+                    working = true
+                    Task { added = await lib.discovery.add(picks); working = false }
+                } label: {
+                    Group {
+                        if working { ProgressView().tint(CapTheme.paper) }
+                        else { Text("ADD THESE").font(.system(size: 12, weight: .heavy, design: .monospaced)).tracking(2) }
+                    }
+                    .foregroundStyle(CapTheme.paper)
+                    .frame(maxWidth: .infinity).padding(.vertical, 15)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(CapTheme.paperInk))
+                }
+                .disabled(working)
+                .padding(.top, 10)
+            }
         }
     }
 }

@@ -104,6 +104,7 @@ final class LibraryModel: ObservableObject {
     @Published var report = Report()
     @Published var delta: Delta?
     let migration = Migration()
+    let discovery = Discovery()
     @Published var userPlaylists: [UserPlaylist] = []
     @Published var recentPlays: [RecentPlay] = []
 
@@ -309,6 +310,11 @@ final class LibraryModel: ObservableObject {
         buckets.insert(contentsOf: newBuckets, at: insertAt)
         moodProgress = nil
         moodsAdded = true
+    }
+
+    /// artist|title keys of everything already in the library — used to filter recommendations.
+    func ownedKeys() -> Set<String> {
+        Set(tracks.map { "\($0.artist.lowercased())|\($0.title.lowercased())" })
     }
 
     func rediscoverList() -> [Track] {
