@@ -26,6 +26,7 @@ final class Migration: ObservableObject {
     @Published var phase = ""
     @Published var current = ""
     @Published var recent: [String] = []
+    @Published var skipped = 0
 
     static var exportAvailable: Bool {
         Bundle.main.url(forResource: "spotify-export", withExtension: "json") != nil
@@ -78,46 +79,70 @@ final class Migration: ObservableObject {
             return
         }
 
-        var consecutiveErrors = 0
+        // Split: already-done vs still to search. Show the resume count honestly.
+        let pending = uniq.filter { !doneKeys.contains($0.key) }
+        skipped = uniq.count - pending.count
+        done = skipped
+        matched = skipped
+        if skipped > 0 { phase = "\(skipped) already matched — picking up where we left off" }
 
-        for (k, t) in uniq {
-            defer { done += 1 }
-            if doneKeys.contains(k) { continue }   // resumed: already added to library previously
-            current = "\(t.title) — \(t.artist)"
-            do {
-                let res = try await withDeadline(seconds: 10) {
-                    var req = MusicCatalogSearchRequest(term: "\(t.title) \(t.artist)", types: [Song.self])
-                    req.limit = 5
-                    return try await req.response()
+        // Search 5 at a time: ~5x faster than sequential, still polite to the API.
+        let items = Array(pending)
+        var consecutiveErrors = 0
+        for chunkStart in stride(from: 0, to: items.count, by: 5) {
+            if fatalError != nil { break }
+            let chunk = Array(items[chunkStart..<min(chunkStart + 5, items.count)])
+            current = chunk.first.map { "\($0.value.title) — \($0.value.artist)" } ?? ""
+            let primaries = chunk.map { (k: $0.key, t: $0.value, primary: norm(String($0.value.artist.split(separator: ",").first ?? ""))) }
+
+            let results: [(String, Song?)] = await withTaskGroup(of: (String, Song?).self) { group in
+                for item in primaries {
+                    group.addTask {
+                        do {
+                            let res = try await withDeadline(seconds: 12) {
+                                var req = MusicCatalogSearchRequest(term: "\(item.t.title) \(item.t.artist)", types: [Song.self])
+                                req.limit = 5
+                                return try await req.response()
+                            }
+                            let norm: (String) -> String = { $0.lowercased().replacingOccurrences(of: #"[^\p{L}\p{N}]"#, with: "", options: .regularExpression) }
+                            let hit = res.songs.first { !item.primary.isEmpty && norm($0.artistName).contains(item.primary) }
+                            return (item.k, hit)
+                        } catch { return (item.k, nil) }
+                    }
                 }
-                let primary = norm(String(t.artist.split(separator: ",").first ?? ""))
-                if let hit = res.songs.first(where: { norm($0.artistName).contains(primary) && !primary.isEmpty }) {
+                var out: [(String, Song?)] = []
+                for await r in group { out.append(r) }
+                return out
+            }
+
+            var failures = 0
+            for (k, hit) in results {
+                done += 1
+                if let hit {
                     matched += 1
                     songByKey[k] = hit
+                    idByKey[k] = hit.id.rawValue
+                    doneKeys.insert(k)
                     recent.insert("\(hit.title) — \(hit.artistName)", at: 0)
                     if recent.count > 3 { recent.removeLast() }
                     if likedKeys.contains(k) {
                         do { try await MusicLibrary.shared.add(hit); addedToLibrary += 1 } catch {}
                     }
-                    doneKeys.insert(k)
-                    idByKey[k] = hit.id.rawValue
-                    if doneKeys.count % 10 == 0 {
-                        UserDefaults.standard.set(Array(doneKeys), forKey: "dacapo.mig.done")
-                        UserDefaults.standard.set(idByKey, forKey: "dacapo.mig.ids")
-                    }
                 } else {
-                    unmatched.append("\(t.title) — \(t.artist)")
+                    failures += 1
+                    if let t = uniq[k] { unmatched.append("\(t.title) — \(t.artist)") }
                 }
-                consecutiveErrors = 0
-            } catch {
-                consecutiveErrors += 1
-                if consecutiveErrors >= 8 {
-                    fatalError = "Search keeps failing (\(error.localizedDescription)). Stopped after \(done) — tap the chip to resume once it's fixed."
-                    return
-                }
-                try? await Task.sleep(for: .seconds(2))
             }
-            try? await Task.sleep(for: .milliseconds(280))
+            // persist after every chunk — never lose more than 5 songs of work
+            UserDefaults.standard.set(Array(doneKeys), forKey: "dacapo.mig.done")
+            UserDefaults.standard.set(idByKey, forKey: "dacapo.mig.ids")
+
+            consecutiveErrors = failures == results.count ? consecutiveErrors + 1 : 0
+            if consecutiveErrors >= 4 {
+                fatalError = "Search kept failing. Stopped at \(done) of \(total) — tap the job again to resume."
+                break
+            }
+            try? await Task.sleep(for: .milliseconds(120))
         }
         UserDefaults.standard.set(Array(doneKeys), forKey: "dacapo.mig.done")
         UserDefaults.standard.set(idByKey, forKey: "dacapo.mig.ids")

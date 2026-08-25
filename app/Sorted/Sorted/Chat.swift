@@ -407,6 +407,14 @@ struct MigrationCard: View {
     @ObservedObject var m: Migration
     var body: some View {
         PaperCard(title: "SPOTIFY IMPORT", right: m.running ? "WORKING" : "DONE") {
+            if m.skipped > 0 {
+                HStack {
+                    Text("Already matched").font(.system(size: 13, weight: .semibold))
+                    Spacer()
+                    Text("\(m.skipped)").font(.system(size: 13, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(CapTheme.paperInk.opacity(0.55))
+                }.padding(.vertical, 2)
+            }
             HStack {
                 Text("Searched").font(.system(size: 13, weight: .semibold))
                 Spacer()
