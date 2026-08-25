@@ -17,6 +17,7 @@ final class PreviewPlayer: NSObject, ObservableObject {
     @objc private func interrupted(_ n: Notification) { stop() }
 
     func play(_ url: URL) {
+        currentURL = url
         player?.pause()
         try? AVAudioSession.sharedInstance().setActive(true)
         let item = AVPlayerItem(url: url)
@@ -32,6 +33,20 @@ final class PreviewPlayer: NSObject, ObservableObject {
             if v >= 1 { t.invalidate() }
         }
     }
+    private var currentURL: URL?
+
+    func togglePause() {
+        guard let player else { return }
+        if playing { player.pause(); playing = false; Haptics.light() }
+        else { player.play(); playing = true; Haptics.light() }
+    }
+
+    func restart() {
+        guard let url = currentURL else { return }
+        Haptics.light()
+        play(url)
+    }
+
     func stop() {
         player?.pause(); player = nil; playing = false
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -55,6 +70,12 @@ struct SwipeDeck: View {
     var body: some View {
         ZStack {
             CapTheme.bg.ignoresSafeArea()
+            HStack {
+                rail(icon: "xmark", label: "SKIP", color: CapTheme.mute, active: offset.width < -30)
+                Spacer()
+                rail(icon: "plus", label: "ADD", color: CapTheme.red, active: offset.width > 30)
+            }
+            .padding(.horizontal, 6)
             VStack(spacing: 0) {
                 header
                 Spacer()
@@ -64,7 +85,11 @@ struct SwipeDeck: View {
                         .rotationEffect(.degrees(Double(offset.width / 22)))
                         .gesture(
                             DragGesture()
-                                .onChanged { offset = $0.translation }
+                                .onChanged { g in
+                                    let wasPast = abs(offset.width) > 100
+                                    offset = g.translation
+                                    if abs(offset.width) > 100 && !wasPast { Haptics.soft() }
+                                }
                                 .onEnded { g in
                                     if g.translation.width > 100 { decide(keep: true) }
                                     else if g.translation.width < -100 { decide(keep: false) }
@@ -76,12 +101,24 @@ struct SwipeDeck: View {
                 } else {
                     finished
                 }
+                if current != nil { playbackControls }
                 Spacer()
                 if current != nil { buttons }
             }
         }
         .onAppear { playCurrent() }
         .onDisappear { player.stop() }
+    }
+
+    func rail(icon: String, label: String, color: Color, active: Bool) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 15, weight: .bold))
+            Text(label).font(.system(size: 10, weight: .heavy)).tracking(1.5)
+        }
+        .foregroundStyle(color)
+        .opacity(active ? 1 : 0.28)
+        .scaleEffect(active ? 1.15 : 1)
+        .animation(.snappy(duration: 0.2), value: active)
     }
 
     var header: some View {
@@ -136,19 +173,44 @@ struct SwipeDeck: View {
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(color, lineWidth: 3))
             .rotationEffect(.degrees(text == "KEEP" ? -12 : 12))
             .padding(28)
-            .opacity(show ? 1 : 0)
+            .opacity(show ? 1 : 0.22)
+    }
+
+    var playbackControls: some View {
+        HStack(spacing: 22) {
+            Button { player.restart() } label: {
+                Image(systemName: "gobackward").font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(CapTheme.mute).frame(width: 44, height: 44)
+            }
+            Button { player.togglePause() } label: {
+                Image(systemName: player.playing ? "pause.fill" : "play.fill")
+                    .font(.system(size: 18, weight: .bold)).foregroundStyle(CapTheme.ink)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(CapTheme.bubble)).overlay(Circle().stroke(CapTheme.line))
+            }
+            Text(player.playing ? "PREVIEW" : "PAUSED")
+                .font(.system(size: 10, weight: .heavy)).tracking(1.5)
+                .foregroundStyle(CapTheme.mute).frame(width: 60, alignment: .leading)
+        }
+        .padding(.top, 18)
     }
 
     var buttons: some View {
         HStack(spacing: 28) {
-            Button { decide(keep: false) } label: {
-                Image(systemName: "xmark").font(.system(size: 22, weight: .bold)).foregroundStyle(CapTheme.mute)
-                    .frame(width: 62, height: 62)
-                    .background(Circle().fill(CapTheme.bubble)).overlay(Circle().stroke(CapTheme.line))
+            VStack(spacing: 6) {
+                Button { decide(keep: false) } label: {
+                    Image(systemName: "xmark").font(.system(size: 22, weight: .bold)).foregroundStyle(CapTheme.mute)
+                        .frame(width: 62, height: 62)
+                        .background(Circle().fill(CapTheme.bubble)).overlay(Circle().stroke(CapTheme.line))
+                }
+                Text("SKIP").font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundStyle(CapTheme.mute)
             }
-            Button { decide(keep: true) } label: {
-                Image(systemName: "plus").font(.system(size: 26, weight: .bold)).foregroundStyle(.white)
-                    .frame(width: 72, height: 72).background(Circle().fill(CapTheme.red))
+            VStack(spacing: 6) {
+                Button { decide(keep: true) } label: {
+                    Image(systemName: "plus").font(.system(size: 26, weight: .bold)).foregroundStyle(.white)
+                        .frame(width: 72, height: 72).background(Circle().fill(CapTheme.red))
+                }
+                Text("ADD TO LIBRARY").font(.system(size: 9.5, weight: .heavy)).tracking(1.2).foregroundStyle(CapTheme.red)
             }
         }
         .padding(.bottom, 34)
@@ -165,7 +227,7 @@ struct SwipeDeck: View {
             } else if !kept.isEmpty {
                 Button {
                     saving = true
-                    Task { savedCount = await lib.discovery.add(kept); saving = false }
+                    Task { savedCount = await lib.discovery.add(kept); saving = false; Haptics.success() }
                 } label: {
                     Group {
                         if saving { ProgressView().tint(.white) }
@@ -182,6 +244,7 @@ struct SwipeDeck: View {
 
     func decide(keep: Bool) {
         guard let song = current else { return }
+        if keep { Haptics.medium() } else { Haptics.light() }
         if keep { kept.append(song) } else {
             skippedCount += 1
             var passed = UserDefaults.standard.stringArray(forKey: "dacapo.passed") ?? []
@@ -193,6 +256,7 @@ struct SwipeDeck: View {
             try? await Task.sleep(for: .milliseconds(200))
             index += 1
             offset = .zero
+            if current == nil { Haptics.success() }
             playCurrent()
         }
     }

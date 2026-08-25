@@ -110,7 +110,7 @@ struct PaywallView: View {
                 SwissButton(title: ent.purchasing ? "…" : "UNLOCK", disabled: ent.product == nil || ent.purchasing) {
                     Task {
                         await ent.purchase()
-                        if ent.unlocked { dismiss(); onUnlocked() }
+                        if ent.unlocked { Haptics.success(); dismiss(); onUnlocked() }
                     }
                 }
                 .padding(.top, 14)

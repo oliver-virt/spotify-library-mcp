@@ -133,6 +133,7 @@ final class Migration: ObservableObject {
                     if let t = uniq[k] { unmatched.append("\(t.title) — \(t.artist)") }
                 }
             }
+            if done % 250 < 5 && done > skipped { Haptics.soft() }
             // persist after every chunk — never lose more than 5 songs of work
             UserDefaults.standard.set(Array(doneKeys), forKey: "dacapo.mig.done")
             UserDefaults.standard.set(idByKey, forKey: "dacapo.mig.ids")
@@ -192,6 +193,7 @@ final class Migration: ObservableObject {
         UserDefaults.standard.set(unmatched, forKey: "dacapo.mig.unmatched")
         UserDefaults.standard.set(true, forKey: "dacapo.migrationDone")
         finished = true
+        Haptics.success()
     }
 }
 

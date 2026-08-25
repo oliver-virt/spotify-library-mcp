@@ -10,6 +10,7 @@
 		05551D10649EB5931A56B7CD /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DDB38B51AEFC9F55F0DF82 /* Views.swift */; };
 		3E37D83FD9EEA1BC873ADE9F /* LibraryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13439C1D8D5861296DC82E4 /* LibraryModel.swift */; };
 		4392A920F33D753420E4624E /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C9377A33ECC3AE45B879682 /* DemoData.swift */; };
+		5D6EDB68D42EBDB3834AFC00 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E37464BB7DCCF81DA2B20F0 /* Haptics.swift */; };
 		65959D353C24A09927D43EE8 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46FBB40D3C54648C70C5C7C /* App.swift */; };
 		8583CF052E3B2BC7022E39E0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */; };
 		8595BC6B3B92DEBB17167CFE /* Migration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 974355B0AB3AE52AA69C8457 /* Migration.swift */; };
@@ -32,6 +33,7 @@
 		238946DFD6280AD363D02F94 /* MoodClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodClassifier.swift; sourceTree = "<group>"; };
 		2C9377A33ECC3AE45B879682 /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
+		3E37464BB7DCCF81DA2B20F0 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		5BA99875DDFD4DD2F6947FF5 /* JobsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobsView.swift; sourceTree = "<group>"; };
 		6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8C8A02DCA29B7C0CAADF053E /* Discovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Discovery.swift; sourceTree = "<group>"; };
@@ -73,6 +75,7 @@
 				2C9377A33ECC3AE45B879682 /* DemoData.swift */,
 				FDD03C0CD0AC5F2F2F7918C8 /* Diag.swift */,
 				8C8A02DCA29B7C0CAADF053E /* Discovery.swift */,
+				3E37464BB7DCCF81DA2B20F0 /* Haptics.swift */,
 				B405BEDF44C30C0AFA24792F /* Info.plist */,
 				5BA99875DDFD4DD2F6947FF5 /* JobsView.swift */,
 				D13439C1D8D5861296DC82E4 /* LibraryModel.swift */,
@@ -166,6 +169,7 @@
 				4392A920F33D753420E4624E /* DemoData.swift in Sources */,
 				BBA35268946842058203F16C /* Diag.swift in Sources */,
 				C42DD72893E50A5701A33107 /* Discovery.swift in Sources */,
+				5D6EDB68D42EBDB3834AFC00 /* Haptics.swift in Sources */,
 				9DE2E8BAA90A6BDEBEC72743 /* JobsView.swift in Sources */,
 				3E37D83FD9EEA1BC873ADE9F /* LibraryModel.swift in Sources */,
 				8595BC6B3B92DEBB17167CFE /* Migration.swift in Sources */,

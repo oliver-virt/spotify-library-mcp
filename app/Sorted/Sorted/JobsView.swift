@@ -50,7 +50,7 @@ struct JobsView: View {
                         .font(.system(size: 14)).foregroundStyle(CapTheme.mute)
                         .padding(.horizontal, 16).padding(.top, 4)
                     ForEach(jobs) { job in
-                        Button { router.run(job.intent) } label: {
+                        Button { Haptics.medium(); router.run(job.intent) } label: {
                             HStack(alignment: .top, spacing: 14) {
                                 Image(systemName: job.icon)
                                     .font(.system(size: 17, weight: .semibold))

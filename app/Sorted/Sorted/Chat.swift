@@ -231,7 +231,7 @@ struct ChatView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(chat.chips, id: \.self) { c in
-                    Button { Task { await chat.run(c, lib: lib) } } label: {
+                    Button { Haptics.light(); Task { await chat.run(c, lib: lib) } } label: {
                         Text(c).font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(CapTheme.mute)
                             .padding(.horizontal, 14).padding(.vertical, 12)
@@ -265,6 +265,7 @@ struct ChatView: View {
         let t = input.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty else { return }
         input = ""
+        Haptics.light()
         hideKeyboard()
         Task { await chat.run(t, lib: lib) }
     }
@@ -386,7 +387,7 @@ struct DiscoveryCard: View {
                     .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(CapTheme.paperInk.opacity(0.7)).padding(.top, 8)
             } else {
                 HStack(spacing: 8) {
-                    Button { showDeck = true } label: {
+                    Button { Haptics.medium(); showDeck = true } label: {
                         Text("LISTEN & PICK").font(.system(size: 12, weight: .heavy, design: .monospaced)).tracking(1.5)
                             .foregroundStyle(CapTheme.paper)
                             .frame(maxWidth: .infinity).padding(.vertical, 15)
@@ -515,12 +516,14 @@ struct PlanCard: View {
                     Text("\(b.displayCount)").font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(CapTheme.paperInk.opacity(0.6))
                     Toggle("", isOn: $b.enabled).labelsHidden().tint(CapTheme.red)
+                        .onChange(of: b.enabled) { _, _ in Haptics.select() }
                         .scaleEffect(0.72).frame(width: 40, height: 24)
                 }
             }
             Text("Creates new playlists only. Yours stay untouched.")
                 .font(.system(size: 10.5)).foregroundStyle(CapTheme.paperInk.opacity(0.6)).padding(.top, 6)
             Button {
+                Haptics.medium()
                 if ent.unlocked { Task { await lib.apply() } } else { showPaywall = true }
             } label: {
                 Group {
