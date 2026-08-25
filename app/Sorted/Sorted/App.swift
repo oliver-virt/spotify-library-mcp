@@ -30,6 +30,7 @@ struct RootView: View {
             }
         }
         .task { await ent.start() }
+        .task { if ProcessInfo.processInfo.environment["DACAPO_DIAG"] != nil { await Diag.runProbe() } }
         .task {
             #if targetEnvironment(simulator)
             if ProcessInfo.processInfo.environment["DACAPO_DEMO"] != nil { model.seedDemo(); return }

@@ -326,7 +326,7 @@ struct MsgView: View {
             }
             .padding(.leading, 38)
         case .migration:
-            MigrationCard().padding(.leading, 38)
+            MigrationCard(m: lib.migration).padding(.leading, 38)
         case .dupes:
             PaperCard(title: "DUPLICATES", right: "\(lib.report.duplicates)") {
                 ForEach(lib.report.dupeExamples.prefix(5)) { d in
@@ -345,10 +345,9 @@ struct MsgView: View {
 }
 
 struct MigrationCard: View {
-    @EnvironmentObject var lib: LibraryModel
+    @ObservedObject var m: Migration
     var body: some View {
-        let m = lib.migration
-        return PaperCard(title: "SPOTIFY IMPORT", right: m.running ? "WORKING" : "DONE") {
+        PaperCard(title: "SPOTIFY IMPORT", right: m.running ? "WORKING" : "DONE") {
             HStack {
                 Text("Searched").font(.system(size: 13, weight: .semibold))
                 Spacer()
@@ -375,6 +374,9 @@ struct MigrationCard: View {
                 }
             }
             .frame(height: 8).padding(.top, 8)
+            if !m.phase.isEmpty {
+                Text(m.phase).font(.system(size: 10.5)).foregroundStyle(CapTheme.paperInk.opacity(0.6)).padding(.top, 6)
+            }
         }
     }
 }

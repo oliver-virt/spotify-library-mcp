@@ -23,6 +23,7 @@ final class Migration: ObservableObject {
     @Published var unmatched: [String] = []
     @Published var finished = UserDefaults.standard.bool(forKey: "dacapo.migrationDone")
     @Published var fatalError: String?
+    @Published var phase = ""
 
     static var exportAvailable: Bool {
         Bundle.main.url(forResource: "spotify-export", withExtension: "json") != nil
@@ -52,22 +53,25 @@ final class Migration: ObservableObject {
         var doneKeys = Set(UserDefaults.standard.stringArray(forKey: "dacapo.mig.done") ?? [])
         var songByKey: [String: Song] = [:]
         fatalError = nil
+        phase = "Checking catalog access…"
 
-        // Preflight: one catalog search with a timeout. If the developer token can't be
-        // minted (MusicKit service missing on the App ID) every search fails — say so once.
+        // Preflight with a hard deadline. MusicKit can hang indefinitely when the
+        // developer token can't be minted, so we race it against a timer.
         do {
-            var probe = MusicCatalogSearchRequest(term: "test", types: [Song.self])
-            probe.limit = 1
-            _ = try await withThrowingTaskGroup(of: MusicCatalogSearchResponse?.self) { group in
-                group.addTask { try await probe.response() }
-                group.addTask { try await Task.sleep(for: .seconds(15)); return nil }
-                let first = try await group.next()!
-                group.cancelAll()
-                if first == nil { throw NSError(domain: "dacapo", code: 1, userInfo: [NSLocalizedDescriptionKey: "Catalog search timed out"]) }
-                return first
+            let ok = try await withDeadline(seconds: 12) {
+                var probe = MusicCatalogSearchRequest(term: "radiohead", types: [Song.self])
+                probe.limit = 1
+                let r = try await probe.response()
+                return r.songs.count
             }
+            phase = "Catalog OK (\(ok) hit). Matching songs…"
+        } catch is DeadlineError {
+            fatalError = "Catalog search timed out. Apple's MusicKit token service usually needs a few minutes after enabling MusicKit on the App ID — try again shortly. (Also check: iPhone online, Apple Music subscription active.)"
+            phase = ""
+            return
         } catch {
-            fatalError = "Catalog search isn't working: \(error.localizedDescription). This usually means the app's ID doesn't have the MusicKit service enabled yet (developer.apple.com → Identifiers → com.olivervirt.dacapo → App Services → MusicKit), or the network is blocked."
+            fatalError = "Catalog search failed: \(error) — \(error.localizedDescription)"
+            phase = ""
             return
         }
 
@@ -77,9 +81,11 @@ final class Migration: ObservableObject {
             defer { done += 1 }
             if doneKeys.contains(k) { continue }   // resumed: already added to library previously
             do {
-                var req = MusicCatalogSearchRequest(term: "\(t.title) \(t.artist)", types: [Song.self])
-                req.limit = 5
-                let res = try await req.response()
+                let res = try await withDeadline(seconds: 10) {
+                    var req = MusicCatalogSearchRequest(term: "\(t.title) \(t.artist)", types: [Song.self])
+                    req.limit = 5
+                    return try await req.response()
+                }
                 let primary = norm(String(t.artist.split(separator: ",").first ?? ""))
                 if let hit = res.songs.first(where: { norm($0.artistName).contains(primary) && !primary.isEmpty }) {
                     matched += 1
@@ -129,5 +135,20 @@ final class Migration: ObservableObject {
         UserDefaults.standard.set(unmatched, forKey: "dacapo.mig.unmatched")
         UserDefaults.standard.set(true, forKey: "dacapo.migrationDone")
         finished = true
+    }
+}
+
+
+struct DeadlineError: Error {}
+
+/// Runs `work`, throwing DeadlineError if it doesn't finish in time.
+func withDeadline<T: Sendable>(seconds: Double, _ work: @escaping @Sendable () async throws -> T) async throws -> T {
+    try await withThrowingTaskGroup(of: T?.self) { group in
+        group.addTask { try await work() }
+        group.addTask { try await Task.sleep(for: .seconds(seconds)); return nil }
+        guard let first = try await group.next() else { throw DeadlineError() }
+        group.cancelAll()
+        guard let value = first else { throw DeadlineError() }
+        return value
     }
 }
