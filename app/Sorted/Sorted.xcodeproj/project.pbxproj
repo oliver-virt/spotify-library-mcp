@@ -20,6 +20,7 @@
 		C42DD72893E50A5701A33107 /* Discovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C8A02DCA29B7C0CAADF053E /* Discovery.swift */; };
 		CCB4216FBD113A595FACAE40 /* Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */; };
 		D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238946DFD6280AD363D02F94 /* MoodClassifier.swift */; };
+		DA71BE50CA99B61E9D590EA5 /* SwipeDeck.swift in Sources */ = {isa = PBXBuildFile; fileRef = C66435487008812D48CDC68E /* SwipeDeck.swift */; };
 		EF1A58B5495842291C9CADE9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = ED81A0500D285C616ABB9F76 /* PrivacyInfo.xcprivacy */; };
 		FBCFA03251E9F3C2464D0C14 /* spotify-export.json in Resources */ = {isa = PBXBuildFile; fileRef = E1C401930A1438706A50D420 /* spotify-export.json */; };
 /* End PBXBuildFile section */
@@ -37,6 +38,7 @@
 		974355B0AB3AE52AA69C8457 /* Migration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Migration.swift; sourceTree = "<group>"; };
 		B405BEDF44C30C0AFA24792F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C46FBB40D3C54648C70C5C7C /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		C66435487008812D48CDC68E /* SwipeDeck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeDeck.swift; sourceTree = "<group>"; };
 		D13439C1D8D5861296DC82E4 /* LibraryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryModel.swift; sourceTree = "<group>"; };
 		E1C401930A1438706A50D420 /* spotify-export.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "spotify-export.json"; sourceTree = "<group>"; };
 		ED81A0500D285C616ABB9F76 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -79,6 +81,7 @@
 				1E8C1D49889BEC4C0A08A8A2 /* Paywall.swift */,
 				ED81A0500D285C616ABB9F76 /* PrivacyInfo.xcprivacy */,
 				E1C401930A1438706A50D420 /* spotify-export.json */,
+				C66435487008812D48CDC68E /* SwipeDeck.swift */,
 				F1DDB38B51AEFC9F55F0DF82 /* Views.swift */,
 			);
 			path = Sorted;
@@ -168,6 +171,7 @@
 				8595BC6B3B92DEBB17167CFE /* Migration.swift in Sources */,
 				D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */,
 				C2D573EA760D3D21A279AE14 /* Paywall.swift in Sources */,
+				DA71BE50CA99B61E9D590EA5 /* SwipeDeck.swift in Sources */,
 				05551D10649EB5931A56B7CD /* Views.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

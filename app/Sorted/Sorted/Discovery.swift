@@ -22,9 +22,10 @@ final class Discovery: ObservableObject {
         running = true; defer { running = false }
         errorText = nil; found = []
         var seen = Set<String>()
+        let passed = Set(UserDefaults.standard.stringArray(forKey: "dacapo.passed") ?? [])
         func consider(_ s: Song, _ reason: String) {
             let key = "\(s.artistName.lowercased())|\(s.title.lowercased())"
-            guard !owned.contains(key), !seen.contains(key) else { return }
+            guard !owned.contains(key), !seen.contains(key), !passed.contains(key) else { return }
             seen.insert(key)
             found.append(NewSong(id: s.id.rawValue, title: s.title, artist: s.artistName, reason: reason, song: s))
         }

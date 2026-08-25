@@ -368,6 +368,7 @@ struct DiscoveryCard: View {
     let picks: [NewSong]
     @State private var added: Int?
     @State private var working = false
+    @State private var showDeck = false
     var body: some View {
         PaperCard(title: "NEW FOR YOU", right: added == nil ? "\(picks.count) SONGS" : "ADDED") {
             ForEach(picks.prefix(8)) { p in
@@ -384,22 +385,31 @@ struct DiscoveryCard: View {
                 Text("Added \(added) songs to your library and ✨ New for you.")
                     .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(CapTheme.paperInk.opacity(0.7)).padding(.top, 8)
             } else {
-                Button {
-                    working = true
-                    Task { added = await lib.discovery.add(picks); working = false }
-                } label: {
-                    Group {
-                        if working { ProgressView().tint(CapTheme.paper) }
-                        else { Text("ADD THESE").font(.system(size: 12, weight: .heavy, design: .monospaced)).tracking(2) }
+                HStack(spacing: 8) {
+                    Button { showDeck = true } label: {
+                        Text("LISTEN & PICK").font(.system(size: 12, weight: .heavy, design: .monospaced)).tracking(1.5)
+                            .foregroundStyle(CapTheme.paper)
+                            .frame(maxWidth: .infinity).padding(.vertical, 15)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(CapTheme.paperInk))
                     }
-                    .foregroundStyle(CapTheme.paper)
-                    .frame(maxWidth: .infinity).padding(.vertical, 15)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(CapTheme.paperInk))
+                    Button {
+                        working = true
+                        Task { added = await lib.discovery.add(picks); working = false }
+                    } label: {
+                        Group {
+                            if working { ProgressView().tint(CapTheme.paperInk) }
+                            else { Text("ADD ALL").font(.system(size: 12, weight: .heavy, design: .monospaced)).tracking(1.5) }
+                        }
+                        .foregroundStyle(CapTheme.paperInk)
+                        .padding(.horizontal, 16).padding(.vertical, 15)
+                        .background(RoundedRectangle(cornerRadius: 8).stroke(CapTheme.paperInk, lineWidth: 1.5))
+                    }
+                    .disabled(working)
                 }
-                .disabled(working)
                 .padding(.top, 10)
             }
         }
+        .sheet(isPresented: $showDeck) { SwipeDeck(picks: picks) }
     }
 }
 
