@@ -59,7 +59,19 @@ final class ChatModel: ObservableObject {
         thinking = true
         let top = lib.report.topArtists.first
         let song = lib.report.topSongs.first
-        let ctx = "\(lib.report.total) songs, \(lib.report.artists) artists, \(lib.report.duplicates) duplicates, \(lib.report.neverPlayed) never played, top artist \(top?.name ?? "unknown") (\(top?.count ?? 0) songs), top song \(song?.name ?? "unknown") played \(song?.count ?? 0) times, health \(lib.report.health)/100."
+        let r = lib.report
+        let artists = r.topArtists.prefix(5).map { "\($0.name) (\($0.count))" }.joined(separator: ", ")
+        let genres = r.genres.prefix(5).map { "\($0.name) \(Int(round(Double($0.count) * 100 / Double(max(r.total, 1)))))%" }.joined(separator: ", ")
+        let decades = r.decades.map { "\($0.name):\($0.count)" }.joined(separator: " ")
+        let songs = r.topSongs.prefix(3).map { "\($0.name) played \($0.count)x" }.joined(separator: "; ")
+        let ctx = """
+        \(r.total) songs by \(r.artists) artists, \(r.totalMinutes / 60) hours.
+        Top artists: \(artists.isEmpty ? "unknown" : artists).
+        Genres: \(genres.isEmpty ? "unknown" : genres).
+        Decades: \(decades.isEmpty ? "unknown" : decades).
+        Most played: \(songs.isEmpty ? "no play counts yet" : songs).
+        \(r.duplicates) duplicates, \(r.inNoPlaylist) songs in no playlist, \(r.neverPlayed) never played. Health \(r.health)/100.
+        """
         let out = await MoodClassifier.interpret(text, context: ctx)
         thinking = false
         guard let out else {
