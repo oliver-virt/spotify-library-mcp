@@ -395,7 +395,7 @@ struct DiscoveryCard: View {
                     }
                     Button {
                         working = true
-                        Task { added = await lib.discovery.add(picks); working = false }
+                        Task { added = await lib.discovery.add(picks); working = false; Haptics.success(); await lib.scan() }
                     } label: {
                         Group {
                             if working { ProgressView().tint(CapTheme.paperInk) }

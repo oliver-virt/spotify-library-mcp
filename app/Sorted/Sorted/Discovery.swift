@@ -23,9 +23,11 @@ final class Discovery: ObservableObject {
         errorText = nil; found = []
         var seen = Set<String>()
         let passed = Set(UserDefaults.standard.stringArray(forKey: "dacapo.passed") ?? [])
+        let alreadyAdded = Set(UserDefaults.standard.stringArray(forKey: "dacapo.added") ?? [])
         func consider(_ s: Song, _ reason: String) {
             let key = "\(s.artistName.lowercased())|\(s.title.lowercased())"
-            guard !owned.contains(key), !seen.contains(key), !passed.contains(key) else { return }
+            guard !owned.contains(key), !seen.contains(key),
+                  !passed.contains(key), !alreadyAdded.contains(key) else { return }
             seen.insert(key)
             found.append(NewSong(id: s.id.rawValue, title: s.title, artist: s.artistName, reason: reason, song: s))
         }
@@ -82,10 +84,18 @@ final class Discovery: ObservableObject {
             if (try? await MusicLibrary.shared.edit(existing, items: [] as [Song])) != nil { pl = existing }
         }
         if pl == nil { pl = try? await MusicLibrary.shared.createPlaylist(name: playlistName, description: "Picked by Da Capo from your Apple Music recommendations") }
+        var addedKeys = UserDefaults.standard.stringArray(forKey: "dacapo.added") ?? []
         for n in songs {
             do { try await MusicLibrary.shared.add(n.song); added += 1 } catch {}
             if let pl { try? await MusicLibrary.shared.add(n.song, to: pl) }
+            // remember it regardless of add success — it was offered and accepted
+            addedKeys.append("\(n.artist.lowercased())|\(n.title.lowercased())")
         }
+        UserDefaults.standard.set(Array(addedKeys.suffix(2000)), forKey: "dacapo.added")
+        // drop them from the current in-memory pool too, so a second round in the
+        // same session doesn't re-offer them before the next scan
+        let justAdded = Set(songs.map { "\($0.artist.lowercased())|\($0.title.lowercased())" })
+        found.removeAll { justAdded.contains("\($0.artist.lowercased())|\($0.title.lowercased())") }
         return added
     }
 }

@@ -67,58 +67,62 @@ struct SwipeDeck: View {
 
     private var current: NewSong? { index < picks.count ? picks[index] : nil }
 
+    private var dragProgress: Double { min(1, abs(offset.width) / 110) }
+
     var body: some View {
         ZStack {
             CapTheme.bg.ignoresSafeArea()
-            HStack {
-                rail(icon: "xmark", label: "SKIP", color: CapTheme.mute, active: offset.width < -30)
-                Spacer()
-                rail(icon: "plus", label: "ADD", color: CapTheme.red, active: offset.width > 30)
-            }
-            .padding(.horizontal, 6)
             VStack(spacing: 0) {
                 header
-                Spacer()
-                if let song = current {
-                    card(song)
-                        .offset(offset)
-                        .rotationEffect(.degrees(Double(offset.width / 22)))
-                        .gesture(
-                            DragGesture()
-                                .onChanged { g in
-                                    let wasPast = abs(offset.width) > 100
-                                    offset = g.translation
-                                    if abs(offset.width) > 100 && !wasPast { Haptics.soft() }
-                                }
-                                .onEnded { g in
-                                    if g.translation.width > 100 { decide(keep: true) }
-                                    else if g.translation.width < -100 { decide(keep: false) }
-                                    else { withAnimation(.snappy) { offset = .zero } }
-                                }
-                        )
-                        .overlay(alignment: .topLeading) { stamp("KEEP", CapTheme.red, offset.width > 40) }
-                        .overlay(alignment: .topTrailing) { stamp("SKIP", .gray, offset.width < -40) }
-                } else {
-                    finished
+                Spacer(minLength: 8)
+                ZStack {
+                    // next card peeking behind (standard deck convention)
+                    if index + 1 < picks.count {
+                        card(picks[index + 1])
+                            .scaleEffect(0.94)
+                            .offset(y: 14)
+                            .opacity(0.55)
+                    }
+                    if let song = current {
+                        card(song)
+                            .overlay(alignment: .topLeading) {
+                                stamp("ADD", CapTheme.red, -14)
+                                    .opacity(offset.width > 20 ? dragProgress : 0)
+                                    .padding(18)
+                            }
+                            .overlay(alignment: .topTrailing) {
+                                stamp("SKIP", .white.opacity(0.85), 14)
+                                    .opacity(offset.width < -20 ? dragProgress : 0)
+                                    .padding(18)
+                            }
+                            .offset(offset)
+                            .rotationEffect(.degrees(Double(offset.width / 25)))
+                            .gesture(
+                                DragGesture()
+                                    .onChanged { g in
+                                        let wasPast = abs(offset.width) > 110
+                                        offset = g.translation
+                                        if abs(offset.width) > 110 && !wasPast { Haptics.soft() }
+                                    }
+                                    .onEnded { g in
+                                        if g.translation.width > 110 { decide(keep: true) }
+                                        else if g.translation.width < -110 { decide(keep: false) }
+                                        else { withAnimation(.snappy) { offset = .zero } }
+                                    }
+                            )
+                    } else {
+                        finished
+                    }
                 }
-                if current != nil { playbackControls }
-                Spacer()
-                if current != nil { buttons }
+                Spacer(minLength: 8)
+                if current != nil {
+                    playbackControls
+                    buttons
+                }
             }
         }
         .onAppear { playCurrent() }
         .onDisappear { player.stop() }
-    }
-
-    func rail(icon: String, label: String, color: Color, active: Bool) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 15, weight: .bold))
-            Text(label).font(.system(size: 10, weight: .heavy)).tracking(1.5)
-        }
-        .foregroundStyle(color)
-        .opacity(active ? 1 : 0.28)
-        .scaleEffect(active ? 1.15 : 1)
-        .animation(.snappy(duration: 0.2), value: active)
     }
 
     var header: some View {
@@ -127,99 +131,104 @@ struct SwipeDeck: View {
                 Text("Done").font(.system(size: 15, weight: .semibold)).foregroundStyle(CapTheme.mute)
             }
             Spacer()
-            Text("\(min(index + 1, picks.count)) / \(picks.count)")
+            Text("\(min(index + 1, picks.count)) of \(picks.count)")
                 .font(.system(size: 13, weight: .heavy, design: .monospaced)).foregroundStyle(CapTheme.mute)
             Spacer()
-            Text("♥ \(kept.count)").font(.system(size: 13, weight: .heavy, design: .monospaced))
-                .foregroundStyle(CapTheme.red)
+            HStack(spacing: 4) {
+                Image(systemName: "plus.circle.fill").font(.system(size: 12))
+                Text("\(kept.count)").font(.system(size: 13, weight: .heavy, design: .monospaced))
+            }
+            .foregroundStyle(CapTheme.red)
         }
-        .padding(.horizontal, 20).padding(.top, 8)
+        .padding(.horizontal, 20).padding(.top, 6).padding(.bottom, 10)
     }
 
     func card(_ s: NewSong) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(spacing: 0) {
             ZStack {
-                RoundedRectangle(cornerRadius: 14).fill(CapTheme.line)
+                Rectangle().fill(CapTheme.line)
                 if let art = s.song.artwork {
-                    ArtworkImage(art, width: 280, height: 280).clipShape(RoundedRectangle(cornerRadius: 14))
+                    ArtworkImage(art, width: 340, height: 340)
                 } else {
-                    Image(systemName: "music.note").font(.system(size: 60)).foregroundStyle(CapTheme.mute)
+                    Image(systemName: "music.note").font(.system(size: 64)).foregroundStyle(CapTheme.mute)
                 }
             }
-            .frame(width: 280, height: 280)
-            Text(s.title).font(.system(size: 22, weight: .heavy)).foregroundStyle(CapTheme.ink)
-                .lineLimit(2).padding(.top, 16)
-            Text(s.artist).font(.system(size: 16)).foregroundStyle(CapTheme.mute).lineLimit(1).padding(.top, 2)
-            HStack(spacing: 6) {
-                Image(systemName: player.playing ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    .font(.system(size: 10))
-                Text(s.reason.uppercased()).font(.system(size: 10, weight: .heavy)).tracking(1)
+            .frame(height: 340)
+            .clipped()
+            VStack(alignment: .leading, spacing: 4) {
+                Text(s.title).font(.system(size: 21, weight: .heavy)).foregroundStyle(CapTheme.ink).lineLimit(1)
+                Text(s.artist).font(.system(size: 16)).foregroundStyle(CapTheme.mute).lineLimit(1)
+                HStack(spacing: 5) {
+                    Image(systemName: player.playing ? "speaker.wave.2.fill" : "pause.circle").font(.system(size: 10))
+                    Text(s.reason.uppercased()).font(.system(size: 9.5, weight: .heavy)).tracking(1).lineLimit(1)
+                }
+                .foregroundStyle(CapTheme.red)
+                .padding(.top, 4)
             }
-            .foregroundStyle(CapTheme.red)
-            .padding(.top, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
         }
-        .padding(22)
-        .frame(width: 324)
-        .background(RoundedRectangle(cornerRadius: 22).fill(CapTheme.bubble))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(CapTheme.line))
-        .shadow(color: .black.opacity(0.4), radius: 18, y: 8)
+        .frame(width: 340)
+        .background(CapTheme.bubble)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(CapTheme.line))
+        .shadow(color: .black.opacity(0.45), radius: 20, y: 10)
     }
 
-    func stamp(_ text: String, _ color: Color, _ show: Bool) -> some View {
+    func stamp(_ text: String, _ color: Color, _ angle: Double) -> some View {
         Text(text)
-            .font(.system(size: 20, weight: .black)).tracking(2)
+            .font(.system(size: 26, weight: .black)).tracking(2)
             .foregroundStyle(color)
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(color, lineWidth: 3))
-            .rotationEffect(.degrees(text == "KEEP" ? -12 : 12))
-            .padding(28)
-            .opacity(show ? 1 : 0.22)
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(color, lineWidth: 4))
+            .rotationEffect(.degrees(angle))
     }
 
     var playbackControls: some View {
-        HStack(spacing: 22) {
+        HStack(spacing: 20) {
             Button { player.restart() } label: {
-                Image(systemName: "gobackward").font(.system(size: 16, weight: .semibold))
+                Image(systemName: "gobackward").font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(CapTheme.mute).frame(width: 44, height: 44)
             }
             Button { player.togglePause() } label: {
                 Image(systemName: player.playing ? "pause.fill" : "play.fill")
-                    .font(.system(size: 18, weight: .bold)).foregroundStyle(CapTheme.ink)
-                    .frame(width: 52, height: 52)
+                    .font(.system(size: 16, weight: .bold)).foregroundStyle(CapTheme.ink)
+                    .frame(width: 48, height: 48)
                     .background(Circle().fill(CapTheme.bubble)).overlay(Circle().stroke(CapTheme.line))
             }
             Text(player.playing ? "PREVIEW" : "PAUSED")
-                .font(.system(size: 10, weight: .heavy)).tracking(1.5)
-                .foregroundStyle(CapTheme.mute).frame(width: 60, alignment: .leading)
+                .font(.system(size: 9.5, weight: .heavy)).tracking(1.4)
+                .foregroundStyle(CapTheme.mute).frame(width: 58, alignment: .leading)
         }
-        .padding(.top, 18)
+        .padding(.top, 14).padding(.bottom, 6)
     }
 
     var buttons: some View {
-        HStack(spacing: 28) {
-            VStack(spacing: 6) {
-                Button { decide(keep: false) } label: {
-                    Image(systemName: "xmark").font(.system(size: 22, weight: .bold)).foregroundStyle(CapTheme.mute)
-                        .frame(width: 62, height: 62)
-                        .background(Circle().fill(CapTheme.bubble)).overlay(Circle().stroke(CapTheme.line))
-                }
-                Text("SKIP").font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundStyle(CapTheme.mute)
+        HStack(spacing: 44) {
+            Button { decide(keep: false) } label: {
+                Image(systemName: "xmark").font(.system(size: 24, weight: .bold)).foregroundStyle(CapTheme.mute)
+                    .frame(width: 64, height: 64)
+                    .background(Circle().fill(CapTheme.bubble)).overlay(Circle().stroke(CapTheme.line))
             }
-            VStack(spacing: 6) {
-                Button { decide(keep: true) } label: {
-                    Image(systemName: "plus").font(.system(size: 26, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 72, height: 72).background(Circle().fill(CapTheme.red))
-                }
-                Text("ADD TO LIBRARY").font(.system(size: 9.5, weight: .heavy)).tracking(1.2).foregroundStyle(CapTheme.red)
+            Button { decide(keep: true) } label: {
+                Image(systemName: "plus").font(.system(size: 28, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 72, height: 72).background(Circle().fill(CapTheme.red))
+                    .shadow(color: CapTheme.red.opacity(0.4), radius: 12, y: 4)
             }
         }
-        .padding(.bottom, 34)
+        .padding(.bottom, 12)
+        .overlay(alignment: .bottom) {
+            Text("swipe left to skip · right to add")
+                .font(.system(size: 10.5)).foregroundStyle(CapTheme.mute.opacity(0.6))
+                .offset(y: 14)
+        }
+        .padding(.bottom, 28)
     }
 
     var finished: some View {
         VStack(spacing: 14) {
-            Text("♥ \(kept.count)").font(.system(size: 40, weight: .black)).foregroundStyle(CapTheme.red)
-            Text(kept.isEmpty ? "Nothing caught you this time." : "\(kept.count) keepers, \(skippedCount) passed.")
+            Text("\(kept.count)").font(.system(size: 52, weight: .black)).foregroundStyle(CapTheme.red)
+            Text(kept.isEmpty ? "Nothing caught you this time." : "keepers, \(skippedCount) passed")
                 .font(.system(size: 16)).foregroundStyle(CapTheme.ink)
             if let savedCount {
                 Text("Added \(savedCount) to your library and ✨ New for you.")
@@ -227,7 +236,7 @@ struct SwipeDeck: View {
             } else if !kept.isEmpty {
                 Button {
                     saving = true
-                    Task { savedCount = await lib.discovery.add(kept); saving = false; Haptics.success() }
+                    Task { savedCount = await lib.discovery.add(kept); saving = false; Haptics.success(); await lib.scan() }
                 } label: {
                     Group {
                         if saving { ProgressView().tint(.white) }
