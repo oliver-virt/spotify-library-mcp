@@ -374,7 +374,26 @@ struct MigrationCard: View {
                 }
             }
             .frame(height: 8).padding(.top, 8)
-            if !m.phase.isEmpty {
+            if !m.current.isEmpty {
+                Text(m.current)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(CapTheme.paperInk.opacity(0.85))
+                    .lineLimit(1).truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+                    .id(m.current)
+                    .transition(.opacity)
+                    .animation(.easeOut(duration: 0.15), value: m.current)
+            }
+            ForEach(m.recent.dropFirst(), id: \.self) { r in
+                Text(r)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(CapTheme.paperInk.opacity(0.4))
+                    .lineLimit(1).truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 1)
+            }
+            if !m.phase.isEmpty && m.current.isEmpty {
                 Text(m.phase).font(.system(size: 10.5)).foregroundStyle(CapTheme.paperInk.opacity(0.6)).padding(.top, 6)
             }
         }

@@ -24,6 +24,8 @@ final class Migration: ObservableObject {
     @Published var finished = UserDefaults.standard.bool(forKey: "dacapo.migrationDone")
     @Published var fatalError: String?
     @Published var phase = ""
+    @Published var current = ""
+    @Published var recent: [String] = []
 
     static var exportAvailable: Bool {
         Bundle.main.url(forResource: "spotify-export", withExtension: "json") != nil
@@ -80,6 +82,7 @@ final class Migration: ObservableObject {
         for (k, t) in uniq {
             defer { done += 1 }
             if doneKeys.contains(k) { continue }   // resumed: already added to library previously
+            current = "\(t.title) — \(t.artist)"
             do {
                 let res = try await withDeadline(seconds: 10) {
                     var req = MusicCatalogSearchRequest(term: "\(t.title) \(t.artist)", types: [Song.self])
@@ -90,6 +93,8 @@ final class Migration: ObservableObject {
                 if let hit = res.songs.first(where: { norm($0.artistName).contains(primary) && !primary.isEmpty }) {
                     matched += 1
                     songByKey[k] = hit
+                    recent.insert("\(hit.title) — \(hit.artistName)", at: 0)
+                    if recent.count > 3 { recent.removeLast() }
                     if likedKeys.contains(k) {
                         do { try await MusicLibrary.shared.add(hit); addedToLibrary += 1 } catch {}
                     }
@@ -114,7 +119,9 @@ final class Migration: ObservableObject {
         UserDefaults.standard.set(Array(doneKeys), forKey: "dacapo.mig.done")
 
         // Rebuild playlists (skip empty). Idempotent-ish: same-name playlist by us gets refreshed by existing apply logic pattern; here: create fresh only if absent.
+        phase = "Rebuilding playlists…"
         for p in export.playlists where !p.tracks.isEmpty {
+            current = p.name
             let songs = p.tracks.compactMap { songByKey[key($0)] }
             guard !songs.isEmpty else { continue }
             do {
@@ -132,6 +139,8 @@ final class Migration: ObservableObject {
                 playlistsBuilt += 1
             } catch { continue }
         }
+        current = ""
+        phase = ""
         UserDefaults.standard.set(unmatched, forKey: "dacapo.mig.unmatched")
         UserDefaults.standard.set(true, forKey: "dacapo.migrationDone")
         finished = true
