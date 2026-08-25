@@ -215,6 +215,19 @@ final class LibraryModel: ObservableObject {
         personality = await MoodClassifier.oneLiner(facts: facts)
     }
 
+    /// Recompute stats from the current `tracks` (used after exclusions).
+    func computeReportPublic() {
+        var artistCount: [String: Int] = [:]
+        var r = report
+        r.total = tracks.count
+        for t in tracks { artistCount[t.artist, default: 0] += 1 }
+        r.topArtists = artistCount.sorted { $0.value > $1.value }.prefix(5).map { Pair(name: $0.key, count: $0.value) }
+        r.topSongs = tracks.filter { $0.playCount > 0 && !Excluded.contains(artist: $0.artist, title: $0.title) }
+            .sorted { $0.playCount > $1.playCount }.prefix(5)
+            .map { Pair(name: "\($0.title) — \($0.artist)", count: $0.playCount) }
+        report = r
+    }
+
     private func computeReport(inPlaylists: Set<MPMediaEntityPersistentID>, meta: [String: MPMediaItem], durations: [String: TimeInterval]) {
         var r = Report()
         r.total = tracks.count
@@ -247,7 +260,8 @@ final class LibraryModel: ObservableObject {
         r.decades = decadeCount.sorted { $0.key < $1.key }.map { Pair(name: "\($0.key % 100)s", count: $0.value) }
         r.artists = artistCount.count
         r.topArtists = artistCount.sorted { $0.value > $1.value }.prefix(5).map { Pair(name: $0.key, count: $0.value) }
-        r.topSongs = tracks.filter { $0.playCount > 0 }.sorted { $0.playCount > $1.playCount }.prefix(5)
+        r.topSongs = tracks.filter { $0.playCount > 0 && !Excluded.contains(artist: $0.artist, title: $0.title) }
+            .sorted { $0.playCount > $1.playCount }.prefix(5)
             .map { Pair(name: "\($0.title) — \($0.artist)", count: $0.playCount) }
         r.genres = genreCount.sorted { $0.value > $1.value }.prefix(6).map { Pair(name: $0.key, count: $0.value) }
         r.totalMinutes = Int(secs / 60)
@@ -325,6 +339,34 @@ final class LibraryModel: ObservableObject {
         var counts: [String: Int] = [:]
         for t in tracks { counts[t.artist.split(separator: ",").first.map(String.init) ?? t.artist, default: 0] += 1 }
         return counts.sorted { $0.value > $1.value }.map(\.key)
+    }
+
+    /// Plain-language snapshot the agent can reason over.
+    func factsForAgent() -> String {
+        let r = report
+        let artists = r.topArtists.prefix(5).map { "\($0.name) (\($0.count) songs)" }.joined(separator: ", ")
+        let genres = r.genres.prefix(5).map { "\($0.name) \(Int(round(Double($0.count) * 100 / Double(max(r.total, 1)))))%" }.joined(separator: ", ")
+        let decades = r.decades.map { "\($0.name): \($0.count)" }.joined(separator: ", ")
+        let songs = r.topSongs.prefix(5).map { "\($0.name) played \($0.count) times" }.joined(separator: "; ")
+        return """
+        \(r.total) songs, \(r.artists) artists, \(r.totalMinutes / 60) hours of music.
+        Top artists: \(artists.isEmpty ? "none yet" : artists).
+        Genres: \(genres.isEmpty ? "unknown" : genres).
+        Decades: \(decades.isEmpty ? "unknown" : decades).
+        Most played: \(songs.isEmpty ? "no play counts yet" : songs).
+        \(r.duplicates) duplicates, \(r.inNoPlaylist) songs in no playlist, \(r.neverPlayed) never played.
+        Library health \(r.health) out of 100.
+        """
+    }
+
+    /// Re-derive the report with excluded artists/songs left out.
+    func applyExclusions() {
+        let keep = tracks.filter { !Excluded.contains(artist: $0.artist, title: $0.title) }
+        guard keep.count != tracks.count else { return }
+        let all = tracks
+        tracks = keep
+        computeReportPublic()
+        tracks = all          // keep the real library intact; only stats change
     }
 
     func ownedKeys() -> Set<String> {

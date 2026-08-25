@@ -25,6 +25,7 @@
 		D1E044CA1A34A1D453E5F3D7 /* MoodClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238946DFD6280AD363D02F94 /* MoodClassifier.swift */; };
 		DA71BE50CA99B61E9D590EA5 /* SwipeDeck.swift in Sources */ = {isa = PBXBuildFile; fileRef = C66435487008812D48CDC68E /* SwipeDeck.swift */; };
 		EF1A58B5495842291C9CADE9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = ED81A0500D285C616ABB9F76 /* PrivacyInfo.xcprivacy */; };
+		F0A9CE723F9E660D3CEA05FE /* Agent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 304F40F73A529A4D96AF1A4B /* Agent.swift */; };
 		FBCFA03251E9F3C2464D0C14 /* spotify-export.json in Resources */ = {isa = PBXBuildFile; fileRef = E1C401930A1438706A50D420 /* spotify-export.json */; };
 /* End PBXBuildFile section */
 
@@ -34,6 +35,7 @@
 		1EE01C509E3E1CDB7E0314BD /* DaCapo.storekit */ = {isa = PBXFileReference; path = DaCapo.storekit; sourceTree = "<group>"; };
 		238946DFD6280AD363D02F94 /* MoodClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodClassifier.swift; sourceTree = "<group>"; };
 		2C9377A33ECC3AE45B879682 /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
+		304F40F73A529A4D96AF1A4B /* Agent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Agent.swift; sourceTree = "<group>"; };
 		3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
 		3E37464BB7DCCF81DA2B20F0 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		5BA99875DDFD4DD2F6947FF5 /* JobsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobsView.swift; sourceTree = "<group>"; };
@@ -72,6 +74,7 @@
 		DE478BE534E957968143542A /* Sorted */ = {
 			isa = PBXGroup;
 			children = (
+				304F40F73A529A4D96AF1A4B /* Agent.swift */,
 				C46FBB40D3C54648C70C5C7C /* App.swift */,
 				6B8A1A5A455A4C9C0B200925 /* Assets.xcassets */,
 				3B958DBEB2D0D8FC6FF034C0 /* Chat.swift */,
@@ -170,6 +173,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F0A9CE723F9E660D3CEA05FE /* Agent.swift in Sources */,
 				65959D353C24A09927D43EE8 /* App.swift in Sources */,
 				CCB4216FBD113A595FACAE40 /* Chat.swift in Sources */,
 				4392A920F33D753420E4624E /* DemoData.swift in Sources */,

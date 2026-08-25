@@ -47,6 +47,21 @@ struct MoodClassifier {
         return false
     }
 
+    /// Agentic turn: the model chooses and calls Cap's tools, then answers.
+    /// Returns Cap's sentence; side effects (cards, chips) arrive via AgentBus.
+    static func agentTurn(_ text: String) async -> String? {
+        #if canImport(FoundationModels)
+        guard #available(iOS 26.0, *) else { return nil }
+        let session = LanguageModelSession(tools: CapAgent.tools, instructions: CapAgent.instructions)
+        do {
+            let r = try await session.respond(to: text)
+            return r.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch { return nil }
+        #else
+        return nil
+        #endif
+    }
+
     /// Free-text interpreter: maps the user's sentence to one of Cap's intents + a short in-voice reply.
     /// The model NEVER does the work — it only picks the tool and writes one line.
     static func interpret(_ text: String, context: String) async -> (intent: String, reply: String)? {

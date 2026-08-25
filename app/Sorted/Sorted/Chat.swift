@@ -48,59 +48,27 @@ final class ChatModel: ObservableObject {
 
     func cap(_ t: String) { messages.append(ChatMsg(kind: .cap(t))) }
 
-    /// Obvious action words never go to the model — keywords win, in English and Hebrew.
-    private func quickIntent(_ text: String) -> String? {
-        let t = text.lowercased()
-        func any(_ words: [String]) -> Bool { words.contains { t.contains($0) } }
-        if any(["suggest", "recommend", "new music", "something new", "discover", "find me",
-                "fresh", "מוזיקה חדשה", "תמליץ", "המלץ", "משהו חדש", "חדש"]) { return "new" }
-        if any(["sort", "organi", "tidy", "clean up my library", "make playlists", "playlists from",
-                "סדר", "לסדר", "פלייליסט"]) { return "sort" }
-        if any(["duplicate", "dupes", "double", "copies", "כפול", "כפילוי"]) { return "duplicates" }
-        if any(["forgot", "forgotten", "haven't played", "havent played", "old songs", "rediscover",
-                "שכחתי", "פעם"]) { return "rediscover" }
-        if any(["stats", "report", "how do i listen", "play count", "my taste", "what is my taste",
-                "סטטיסטיק", "דוח"]) { return "report" }
-        return nil
-    }
-
-    /// Typed input: on-device model routes to a tool; tools stay deterministic.
+    /// Typed input: the on-device agent picks and calls Cap's tools itself.
     private func freeText(_ text: String, lib: LibraryModel) async {
         messages.append(ChatMsg(kind: .user(text)))
-        // deterministic route first — no model judgment needed for clear requests
-        if let quick = quickIntent(text) {
-            await route(quick, reply: nil, lib: lib)
-            return
-        }
         guard MoodClassifier.isAvailable else {
-            cap("Not my counter — I do five things: sort, playlists, duplicates, forgotten songs, and your listening report. Pick one below.")
+            cap("I need Apple Intelligence for free-form questions — the buttons below work on any phone.")
             chips = Self.homeChips
             return
         }
-        thinking = true
-        let top = lib.report.topArtists.first
-        let song = lib.report.topSongs.first
-        let r = lib.report
-        let artists = r.topArtists.prefix(5).map { "\($0.name) (\($0.count))" }.joined(separator: ", ")
-        let genres = r.genres.prefix(5).map { "\($0.name) \(Int(round(Double($0.count) * 100 / Double(max(r.total, 1)))))%" }.joined(separator: ", ")
-        let decades = r.decades.map { "\($0.name):\($0.count)" }.joined(separator: " ")
-        let songs = r.topSongs.prefix(3).map { "\($0.name) played \($0.count)x" }.joined(separator: "; ")
-        let ctx = """
-        \(r.total) songs by \(r.artists) artists, \(r.totalMinutes / 60) hours.
-        Top artists: \(artists.isEmpty ? "unknown" : artists).
-        Genres: \(genres.isEmpty ? "unknown" : genres).
-        Decades: \(decades.isEmpty ? "unknown" : decades).
-        Most played: \(songs.isEmpty ? "no play counts yet" : songs).
-        \(r.duplicates) duplicates, \(r.inNoPlaylist) songs in no playlist, \(r.neverPlayed) never played. Health \(r.health)/100.
-        """
-        let out = await MoodClassifier.interpret(text, context: ctx)
-        thinking = false
-        guard let out else {
-            cap("Not my counter — try one of the chips below.")
-            chips = Self.homeChips
-            return
-        }
-        await route(out.intent, reply: out.reply, lib: lib)
+        AgentBus.shared.lib = lib
+        AgentBus.shared.reset()
+        thinking = true; thinkingLabel = "Thinking…"
+        let reply = await MoodClassifier.agentTurn(text)
+        thinking = false; thinkingLabel = ""
+
+        cap(reply ?? "That one got away from me — try one of the buttons below.")
+        // render whatever the tools produced
+        for card in AgentBus.shared.cards { messages.append(ChatMsg(kind: card)) }
+        if !AgentBus.shared.chips.isEmpty { chips = AgentBus.shared.chips }
+        else { chips = ["Find me something new"] + Self.homeChips.filter { $0 != "Find me something new" } }
+        if AgentBus.shared.wantsPicker { wantsPicker = true }
+        AgentBus.shared.reset()
     }
 
     /// One place that turns an intent into Cap actually doing something.
