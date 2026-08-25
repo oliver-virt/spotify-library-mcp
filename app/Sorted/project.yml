@@ -33,7 +33,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.olivervirt.dacapo
         DEVELOPMENT_TEAM: NLP9537CF4
-        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_STYLE: Manual
+        PROVISIONING_PROFILE_SPECIFIER: Da Capo Dev
+        CODE_SIGN_IDENTITY: Apple Development
         INFOPLIST_KEY_UIUserInterfaceStyle: Dark
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
