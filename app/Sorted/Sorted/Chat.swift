@@ -48,9 +48,30 @@ final class ChatModel: ObservableObject {
 
     func cap(_ t: String) { messages.append(ChatMsg(kind: .cap(t))) }
 
+    /// Obvious action words never go to the model — keywords win, in English and Hebrew.
+    private func quickIntent(_ text: String) -> String? {
+        let t = text.lowercased()
+        func any(_ words: [String]) -> Bool { words.contains { t.contains($0) } }
+        if any(["suggest", "recommend", "new music", "something new", "discover", "find me",
+                "fresh", "מוזיקה חדשה", "תמליץ", "המלץ", "משהו חדש", "חדש"]) { return "new" }
+        if any(["sort", "organi", "tidy", "clean up my library", "make playlists", "playlists from",
+                "סדר", "לסדר", "פלייליסט"]) { return "sort" }
+        if any(["duplicate", "dupes", "double", "copies", "כפול", "כפילוי"]) { return "duplicates" }
+        if any(["forgot", "forgotten", "haven't played", "havent played", "old songs", "rediscover",
+                "שכחתי", "פעם"]) { return "rediscover" }
+        if any(["stats", "report", "how do i listen", "play count", "my taste", "what is my taste",
+                "סטטיסטיק", "דוח"]) { return "report" }
+        return nil
+    }
+
     /// Typed input: on-device model routes to a tool; tools stay deterministic.
     private func freeText(_ text: String, lib: LibraryModel) async {
         messages.append(ChatMsg(kind: .user(text)))
+        // deterministic route first — no model judgment needed for clear requests
+        if let quick = quickIntent(text) {
+            await route(quick, reply: nil, lib: lib)
+            return
+        }
         guard MoodClassifier.isAvailable else {
             cap("Not my counter — I do five things: sort, playlists, duplicates, forgotten songs, and your listening report. Pick one below.")
             chips = Self.homeChips
@@ -79,25 +100,44 @@ final class ChatModel: ObservableObject {
             chips = Self.homeChips
             return
         }
-        cap(out.reply)
-        switch out.intent {
+        await route(out.intent, reply: out.reply, lib: lib)
+    }
+
+    /// One place that turns an intent into Cap actually doing something.
+    private func route(_ intent: String, reply: String?, lib: LibraryModel) async {
+        switch intent {
         case "sort":
+            cap(reply ?? "Reading your library now.")
             messages.append(ChatMsg(kind: .plan))
             chips = ["Add mood playlists", "How do I listen?"]
         case "duplicates":
-            if lib.report.duplicates > 0 { messages.append(ChatMsg(kind: .dupes)) }
+            if lib.report.duplicates > 0 {
+                cap(reply ?? "Found \(lib.report.duplicates) duplicates — same song, different releases:")
+                messages.append(ChatMsg(kind: .dupes))
+            } else {
+                cap(reply ?? "Checked every song. No duplicates.")
+            }
             chips = Self.homeChips.filter { $0 != "Find duplicates" }
         case "rediscover":
             let r = lib.rediscoverList()
             if !r.isEmpty {
+                cap(reply ?? "Songs you saved and never came back to:")
                 messages.append(ChatMsg(kind: .rediscover(Array(r.prefix(6)))))
                 chips = ["Make it a playlist", "Sort my library"]
-            } else { chips = Self.homeChips }
+            } else {
+                cap(reply ?? "Nothing forgotten yet — young library.")
+                chips = Self.homeChips
+            }
         case "report":
+            cap(reply ?? "Here's how you actually listen:")
             messages.append(ChatMsg(kind: .report))
             chips = Self.homeChips.filter { $0 != "How do I listen?" }
+        case "new":
+            cap(reply ?? "Let's find you something. What kind?")
+            wantsPicker = true
         default:
-            chips = Self.homeChips
+            if let reply { cap(reply) }
+            chips = ["Find me something new"] + Self.homeChips.filter { $0 != "Find me something new" }
         }
     }
 
