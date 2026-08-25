@@ -1,5 +1,6 @@
 import SwiftUI
 import StoreKit
+import MusicKit
 
 // Chat-first shell. Chips are deterministic intents on LibraryModel — no AI needed.
 // Free-text is a stub until the Foundation Models layer lands.
@@ -91,7 +92,8 @@ final class ChatModel: ObservableObject {
     func run(_ intent: String, lib: LibraryModel) async {
         let known = Self.homeChips + ["Make it a playlist", "Add mood playlists", "__runDiscovery"]
         guard known.contains(intent) else { await freeText(intent, lib: lib); return }
-        messages.append(ChatMsg(kind: .user(intent.lowercased())))
+        // internal sentinels (prefixed __) are plumbing, never shown as the user talking
+        if !intent.hasPrefix("__") { messages.append(ChatMsg(kind: .user(intent.lowercased()))) }
         thinking = true
         try? await Task.sleep(for: .milliseconds(500))
         thinking = false
@@ -369,26 +371,21 @@ struct MsgView: View {
         case .plan:
             PlanCard(showPaywall: $showPaywall).padding(.leading, 38)
         case .report:
-            ReportCard(report: lib.report, personality: lib.personality, forExport: false)
-                .frame(width: 300).padding(.leading, 38)
+            MiniReportCard().padding(.leading, 38)
                 .task { await lib.makePersonality() }
         case .rediscover(let tracks):
-            PaperCard(title: "FORGOTTEN", right: "\(tracks.count) PICKS") {
-                ForEach(tracks) { t in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(t.title).font(.system(size: 13, weight: .bold)).lineLimit(1)
-                            Text(t.artist).font(.system(size: 11)).foregroundStyle(CapTheme.paperInk.opacity(0.55)).lineLimit(1)
-                        }
-                        Spacer()
-                        if let a = t.added {
-                            Text(a.formatted(.dateTime.month(.abbreviated).year()))
-                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(CapTheme.paperInk.opacity(0.5))
-                        }
-                    }
-                    .padding(.vertical, 3)
-                }
+            SongRowsCard(
+                title: "FORGOTTEN",
+                count: "\(tracks.count)",
+                rows: tracks.map { t in
+                    (art: t.song.artwork,
+                     title: t.title,
+                     sub: "\(t.artist) · saved \(t.added.map { $0.formatted(.dateTime.month(.abbreviated).year()) } ?? "a while back")")
+                },
+                more: 0
+            ) {
+                Text("Ask me to make these a playlist.")
+                    .font(.system(size: 12)).foregroundStyle(CapTheme.mute)
             }
             .padding(.leading, 38)
         case .migration:
@@ -397,19 +394,148 @@ struct MsgView: View {
             DiscoveryCard(all: picks)
                 .padding(.leading, 38)
         case .dupes:
-            PaperCard(title: "DUPLICATES", right: "\(lib.report.duplicates)") {
-                ForEach(lib.report.dupeExamples.prefix(5)) { d in
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("\(d.title) — \(d.artist)").font(.system(size: 13, weight: .bold)).lineLimit(1)
-                        Text("\(d.albumA) + \(d.albumB)").font(.system(size: 10.5)).foregroundStyle(CapTheme.paperInk.opacity(0.55)).lineLimit(1)
-                    }
-                    .padding(.vertical, 3)
-                }
+            SongRowsCard(
+                title: "DUPLICATES",
+                count: "\(lib.report.duplicates)",
+                rows: lib.report.dupeExamples.prefix(5).map { (art: nil, title: "\($0.title) — \($0.artist)", sub: "\($0.albumA)  +  \($0.albumB)") },
+                more: max(0, lib.report.duplicates - 5)
+            ) {
                 Text("Approve the plan and these land in one review playlist.")
-                    .font(.system(size: 11)).foregroundStyle(CapTheme.paperInk.opacity(0.6)).padding(.top, 6)
+                    .font(.system(size: 12)).foregroundStyle(CapTheme.mute)
             }
             .padding(.leading, 38)
         }
+    }
+}
+
+/// Compact, dark summary that belongs in a chat thread. The full paper report
+/// lives in Files (and in the share image), where an artifact makes sense.
+struct MiniReportCard: View {
+    @EnvironmentObject var lib: LibraryModel
+    @EnvironmentObject var router: Router
+    @State private var showFull = false
+    var body: some View {
+        let r = lib.report
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("YOUR LIBRARY").font(.system(size: 10.5, weight: .heavy)).tracking(1.4)
+                Spacer()
+                Text("HEALTH \(r.health)").font(.system(size: 10.5, weight: .heavy, design: .monospaced))
+                    .foregroundStyle(r.health >= 60 ? CapTheme.red : CapTheme.mute)
+            }
+            .foregroundStyle(CapTheme.mute)
+            .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 10)
+
+            HStack(spacing: 0) {
+                stat("\(r.total.formatted())", "songs")
+                stat("\(r.artists.formatted())", "artists")
+                stat("\(r.totalMinutes / 60)h", "of music")
+            }
+            .padding(.horizontal, 8)
+
+            if let line = lib.personality {
+                Text(line).font(.system(size: 12.5)).italic().foregroundStyle(CapTheme.mute)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14).padding(.top, 10)
+            }
+
+            if !r.topSongs.isEmpty {
+                Text("MOST PLAYED · COUNTS APPLE HIDES")
+                    .font(.system(size: 9.5, weight: .heavy)).tracking(1).foregroundStyle(CapTheme.red)
+                    .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 6)
+                ForEach(r.topSongs.prefix(3), id: \.name) { t in
+                    HStack {
+                        Text(t.name).font(.system(size: 13)).foregroundStyle(CapTheme.ink).lineLimit(1)
+                        Spacer(minLength: 8)
+                        Text("×\(t.count)").font(.system(size: 12, weight: .heavy, design: .monospaced))
+                            .foregroundStyle(CapTheme.red)
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 2)
+                }
+            }
+
+            Button { Haptics.light(); showFull = true } label: {
+                Text("See the full report").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(CapTheme.red).frame(maxWidth: .infinity).padding(.vertical, 12)
+            }
+            .padding(.top, 8)
+        }
+        .frame(width: 300, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(CapTheme.bubble))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(CapTheme.line))
+        .sheet(isPresented: $showFull) { FullReportSheet() }
+    }
+    func stat(_ v: String, _ l: String) -> some View {
+        VStack(spacing: 2) {
+            Text(v).font(.system(size: 20, weight: .heavy)).foregroundStyle(CapTheme.ink).monospacedDigit()
+            Text(l).font(.system(size: 10.5)).foregroundStyle(CapTheme.mute)
+        }.frame(maxWidth: .infinity)
+    }
+}
+
+/// The paper artifact: full report, and what gets shared.
+struct FullReportSheet: View {
+    @EnvironmentObject var lib: LibraryModel
+    @Environment(\.dismiss) var dismiss
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                ReportCard(report: lib.report, personality: lib.personality)
+                    .padding(16)
+            }
+            .background(CapTheme.bg)
+            .navigationTitle("Your library")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
+            }
+        }
+    }
+}
+
+/// Dark, artwork-first list that sits naturally in the chat — the way a music app shows songs.
+struct SongRowsCard<Footer: View>: View {
+    let title: String
+    let count: String
+    let rows: [(art: Artwork?, title: String, sub: String)]
+    let more: Int
+    @ViewBuilder let footer: Footer
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(title).font(.system(size: 10.5, weight: .heavy)).tracking(1.4)
+                Spacer()
+                Text(count).font(.system(size: 10.5, weight: .heavy, design: .monospaced))
+            }
+            .foregroundStyle(CapTheme.mute)
+            .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 8)
+
+            ForEach(Array(rows.enumerated()), id: \.offset) { i, r in
+                HStack(spacing: 11) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 5).fill(CapTheme.line)
+                        if let a = r.art { ArtworkImage(a, width: 42, height: 42).clipShape(RoundedRectangle(cornerRadius: 5)) }
+                        else { Image(systemName: "music.note").font(.system(size: 14)).foregroundStyle(CapTheme.mute) }
+                    }
+                    .frame(width: 42, height: 42)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(r.title).font(.system(size: 14.5, weight: .semibold)).foregroundStyle(CapTheme.ink).lineLimit(1)
+                        Text(r.sub).font(.system(size: 12)).foregroundStyle(CapTheme.mute).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 14).padding(.vertical, 5)
+            }
+            if more > 0 {
+                Text("+ \(more) more").font(.system(size: 12)).foregroundStyle(CapTheme.mute)
+                    .padding(.horizontal, 14).padding(.top, 4)
+            }
+            footer.padding(14)
+        }
+        .frame(width: 300, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16).fill(CapTheme.bubble))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(CapTheme.line))
     }
 }
 
@@ -430,47 +556,38 @@ struct DiscoveryCard: View {
         }
     }
     var body: some View {
-        PaperCard(title: "NEW FOR YOU", right: picks.isEmpty ? "ALL HANDLED" : "\(picks.count) SONGS") {
+        SongRowsCard(
+            title: "NEW FOR YOU",
+            count: picks.isEmpty ? "ALL HANDLED" : "\(picks.count)",
+            rows: picks.prefix(6).map { (art: $0.song.artwork, title: "\($0.title) — \($0.artist)", sub: $0.reason) },
+            more: max(0, picks.count - 6)
+        ) {
             if picks.isEmpty {
                 Text("You've been through these. Ask again for a fresh batch.")
-                    .font(.system(size: 12)).foregroundStyle(CapTheme.paperInk.opacity(0.6))
-            }
-            ForEach(picks.prefix(8)) { p in
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("\(p.title) — \(p.artist)").font(.system(size: 13, weight: .bold)).lineLimit(1)
-                    Text(p.reason).font(.system(size: 10.5)).foregroundStyle(CapTheme.paperInk.opacity(0.55)).lineLimit(1)
-                }
-                .padding(.vertical, 3)
-            }
-            if picks.count > 8 {
-                Text("+ \(picks.count - 8) more").font(.system(size: 11)).foregroundStyle(CapTheme.paperInk.opacity(0.55)).padding(.top, 2)
-            }
-            if let added {
-                Text("Added \(added) songs to your library and ✨ New for you.")
-                    .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(CapTheme.paperInk.opacity(0.7)).padding(.top, 8)
-            } else if !picks.isEmpty {
-                HStack(spacing: 8) {
+                    .font(.system(size: 12)).foregroundStyle(CapTheme.mute)
+            } else if let added {
+                Text("Added \(added) to your library and ✨ New for you.")
+                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(CapTheme.red)
+            } else {
+                VStack(spacing: 8) {
                     Button { Haptics.medium(); showDeck = true } label: {
-                        Text("LISTEN & PICK").font(.system(size: 12, weight: .heavy, design: .monospaced)).tracking(1.5)
-                            .foregroundStyle(CapTheme.paper)
-                            .frame(maxWidth: .infinity).padding(.vertical, 15)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(CapTheme.paperInk))
+                        Label("Listen & pick", systemImage: "play.circle.fill")
+                            .font(.system(size: 14.5, weight: .bold)).foregroundStyle(.white)
+                            .frame(maxWidth: .infinity).padding(.vertical, 13)
+                            .background(RoundedRectangle(cornerRadius: 10).fill(CapTheme.red))
                     }
                     Button {
                         working = true
                         Task { added = await lib.discovery.add(picks); working = false; Haptics.success(); await lib.scan() }
                     } label: {
                         Group {
-                            if working { ProgressView().tint(CapTheme.paperInk) }
-                            else { Text("ADD ALL").font(.system(size: 12, weight: .heavy, design: .monospaced)).tracking(1.5) }
+                            if working { ProgressView().tint(CapTheme.mute) }
+                            else { Text("Add all \(picks.count)").font(.system(size: 13, weight: .semibold)) }
                         }
-                        .foregroundStyle(CapTheme.paperInk)
-                        .padding(.horizontal, 16).padding(.vertical, 15)
-                        .background(RoundedRectangle(cornerRadius: 8).stroke(CapTheme.paperInk, lineWidth: 1.5))
+                        .foregroundStyle(CapTheme.mute).frame(maxWidth: .infinity).padding(.vertical, 10)
                     }
                     .disabled(working)
                 }
-                .padding(.top, 10)
             }
         }
         .sheet(isPresented: $showDeck, onDismiss: { version += 1 }) { SwipeDeck(incoming: picks) }
