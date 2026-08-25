@@ -56,8 +56,16 @@ final class PreviewPlayer: NSObject, ObservableObject {
 struct SwipeDeck: View {
     @EnvironmentObject var lib: LibraryModel
     @Environment(\.dismiss) var dismiss
-    let picks: [NewSong]
+    let incoming: [NewSong]
     @StateObject private var player = PreviewPlayer()
+    private var picks: [NewSong] {
+        let handled = Discovery.handled
+        let owned = lib.ownedKeys()
+        return incoming.filter {
+            let k = Discovery.key($0.artist, $0.title)
+            return !handled.contains(k) && !owned.contains(k)
+        }
+    }
     @State private var index = 0
     @State private var offset: CGSize = .zero
     @State private var kept: [NewSong] = []
@@ -122,7 +130,7 @@ struct SwipeDeck: View {
             }
         }
         .onAppear { playCurrent() }
-        .onDisappear { player.stop() }
+        .onDisappear { player.stop(); Task { await lib.scan() } }
     }
 
     var header: some View {
@@ -230,23 +238,16 @@ struct SwipeDeck: View {
             Text("\(kept.count)").font(.system(size: 52, weight: .black)).foregroundStyle(CapTheme.red)
             Text(kept.isEmpty ? "Nothing caught you this time." : "keepers, \(skippedCount) passed")
                 .font(.system(size: 16)).foregroundStyle(CapTheme.ink)
-            if let savedCount {
-                Text("Added \(savedCount) to your library and ✨ New for you.")
+            if !kept.isEmpty {
+                Text("Already in your library and ✨ New for you.")
                     .font(.system(size: 13)).foregroundStyle(CapTheme.mute).multilineTextAlignment(.center)
-            } else if !kept.isEmpty {
-                Button {
-                    saving = true
-                    Task { savedCount = await lib.discovery.add(kept); saving = false; Haptics.success(); await lib.scan() }
-                } label: {
-                    Group {
-                        if saving { ProgressView().tint(.white) }
-                        else { Text("ADD \(kept.count) TO MY LIBRARY").font(.system(size: 13, weight: .heavy, design: .monospaced)).tracking(1.5) }
-                    }
-                    .foregroundStyle(.white).padding(.horizontal, 26).padding(.vertical, 16)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(CapTheme.red))
-                }
-                .disabled(saving).padding(.top, 8)
             }
+            Button { player.stop(); dismiss() } label: {
+                Text("DONE").font(.system(size: 13, weight: .heavy, design: .monospaced)).tracking(1.5)
+                    .foregroundStyle(.white).padding(.horizontal, 32).padding(.vertical, 15)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(CapTheme.red))
+            }
+            .padding(.top, 10)
         }
         .padding(32)
     }
@@ -254,7 +255,11 @@ struct SwipeDeck: View {
     func decide(keep: Bool) {
         guard let song = current else { return }
         if keep { Haptics.medium() } else { Haptics.light() }
-        if keep { kept.append(song) } else {
+        if keep {
+            kept.append(song)
+            // add straight away — the button says ADD TO LIBRARY, so it should add
+            Task { await lib.discovery.addOne(song) }
+        } else {
             skippedCount += 1
             var passed = UserDefaults.standard.stringArray(forKey: "dacapo.passed") ?? []
             passed.append("\(song.artist.lowercased())|\(song.title.lowercased())")

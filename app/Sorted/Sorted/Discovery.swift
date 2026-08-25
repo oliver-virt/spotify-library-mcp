@@ -25,7 +25,7 @@ final class Discovery: ObservableObject {
         let passed = Set(UserDefaults.standard.stringArray(forKey: "dacapo.passed") ?? [])
         let alreadyAdded = Set(UserDefaults.standard.stringArray(forKey: "dacapo.added") ?? [])
         func consider(_ s: Song, _ reason: String) {
-            let key = "\(s.artistName.lowercased())|\(s.title.lowercased())"
+            let key = Self.key(s.artistName, s.title)
             guard !owned.contains(key), !seen.contains(key),
                   !passed.contains(key), !alreadyAdded.contains(key) else { return }
             seen.insert(key)
@@ -37,8 +37,19 @@ final class Discovery: ObservableObject {
             let res = try await withDeadline(seconds: 20) {
                 try await MusicPersonalRecommendationsRequest().response()
             }
-            for rec in res.recommendations {
+            // Apple's "Made for You" / "Heavy Rotation" sections are rebuilt from the
+            // user's OWN library — useless for discovery. Prefer sections that surface
+            // things they haven't heard.
+            let recycled = ["made for you", "heavy rotation", "replay", "recently played",
+                            "favorites", "top songs", "your library", "listen again"]
+            let ranked = res.recommendations.sorted { a, b in
+                let ra = recycled.contains { (a.title ?? "").lowercased().contains($0) }
+                let rb = recycled.contains { (b.title ?? "").lowercased().contains($0) }
+                return !ra && rb
+            }
+            for rec in ranked {
                 let label = rec.title ?? "Recommended for you"
+                if recycled.contains(where: { label.lowercased().contains($0) }) && found.count >= 10 { continue }
                 phase = "Going through \(label.lowercased())…"
                 for item in rec.items.prefix(12) {
                     switch item {
@@ -61,8 +72,8 @@ final class Discovery: ObservableObject {
         } catch { errorText = "Couldn't read recommendations: \(error.localizedDescription)" }
 
         // 2. Top up from charts if thin
-        if found.count < 15 {
-            phase = "Checking what's big right now…"
+        if found.count < 20 {
+            phase = "Checking what's new and big right now…"
             do {
                 var req = MusicCatalogChartsRequest(types: [Song.self])
                 req.limit = 40
@@ -74,6 +85,38 @@ final class Discovery: ObservableObject {
             } catch { }
         }
         phase = ""
+    }
+
+    /// Same fuzzy key the duplicate finder uses: primary artist + title minus
+    /// "(Remastered)", "- Live", "(Radio Edit)" etc. Prevents adding another
+    /// pressing of a song the user already owns.
+    static func key(_ artist: String, _ title: String) -> String {
+        let primary = String(artist.split(separator: ",").first ?? "")
+            .lowercased().trimmingCharacters(in: .whitespaces)
+        return "\(primary)|\(Track.normTitle(title))"
+    }
+    /// Everything the user has already added or passed on — never offer these again.
+    static var handled: Set<String> {
+        Set((UserDefaults.standard.stringArray(forKey: "dacapo.added") ?? [])
+          + (UserDefaults.standard.stringArray(forKey: "dacapo.passed") ?? []))
+    }
+
+    /// Adds ONE song immediately (swipe-right): library + playlist + remembered.
+    @discardableResult
+    func addOne(_ n: NewSong, playlistName: String = "✨ New for you") async -> Bool {
+        var ok = false
+        do { try await MusicLibrary.shared.add(n.song); ok = true } catch {}
+        var preq = MusicLibraryRequest<Playlist>()
+        preq.limit = 200
+        var pl: Playlist? = try? await preq.response().items.first(where: { $0.name == playlistName })
+        if pl == nil { pl = try? await MusicLibrary.shared.createPlaylist(name: playlistName, description: "Picked by Da Capo") }
+        if let pl { try? await MusicLibrary.shared.add(n.song, to: pl) }
+        var addedKeys = UserDefaults.standard.stringArray(forKey: "dacapo.added") ?? []
+        addedKeys.append(Self.key(n.artist, n.title))
+        UserDefaults.standard.set(Array(addedKeys.suffix(2000)), forKey: "dacapo.added")
+        let k = Self.key(n.artist, n.title)
+        found.removeAll { Self.key($0.artist, $0.title) == k }
+        return ok
     }
 
     /// Adds the approved songs to the library and a playlist.
@@ -91,13 +134,13 @@ final class Discovery: ObservableObject {
             do { try await MusicLibrary.shared.add(n.song); added += 1 } catch {}
             if let pl { try? await MusicLibrary.shared.add(n.song, to: pl) }
             // remember it regardless of add success — it was offered and accepted
-            addedKeys.append("\(n.artist.lowercased())|\(n.title.lowercased())")
+            addedKeys.append(Self.key(n.artist, n.title))
         }
         UserDefaults.standard.set(Array(addedKeys.suffix(2000)), forKey: "dacapo.added")
         // drop them from the current in-memory pool too, so a second round in the
         // same session doesn't re-offer them before the next scan
-        let justAdded = Set(songs.map { "\($0.artist.lowercased())|\($0.title.lowercased())" })
-        found.removeAll { justAdded.contains("\($0.artist.lowercased())|\($0.title.lowercased())") }
+        let justAdded = Set(songs.map { Self.key($0.artist, $0.title) })
+        found.removeAll { justAdded.contains(Self.key($0.artist, $0.title)) }
         return added
     }
 }

@@ -113,7 +113,9 @@ final class ChatModel: ObservableObject {
             chips = ["How do I listen?", "Sort my library"]
         case "Find me something new":
             cap("Let me see what Apple has for you that you don't already own.")
-            thinking = true; thinkingLabel = "Reading your recommendations…"
+            thinking = true; thinkingLabel = "Checking what you already own…"
+            await lib.scan()          // never recommend against a stale library
+            thinkingLabel = "Reading your recommendations…"
             await lib.discovery.run(owned: lib.ownedKeys())
             thinking = false; thinkingLabel = ""
             if let e = lib.discovery.errorText { cap(e); chips = Self.homeChips; return }
@@ -385,7 +387,7 @@ struct MsgView: View {
         case .migration:
             MigrationCard(m: lib.migration).padding(.leading, 38)
         case .discovery(let picks):
-            DiscoveryCard(picks: picks)
+            DiscoveryCard(all: picks)
                 .padding(.leading, 38)
         case .dupes:
             PaperCard(title: "DUPLICATES", right: "\(lib.report.duplicates)") {
@@ -406,12 +408,26 @@ struct MsgView: View {
 
 struct DiscoveryCard: View {
     @EnvironmentObject var lib: LibraryModel
-    let picks: [NewSong]
+    let all: [NewSong]
     @State private var added: Int?
     @State private var working = false
     @State private var showDeck = false
+    @State private var version = 0
+    private var picks: [NewSong] {
+        _ = version
+        let handled = Discovery.handled
+        let owned = lib.ownedKeys()
+        return all.filter {
+            let k = Discovery.key($0.artist, $0.title)
+            return !handled.contains(k) && !owned.contains(k)
+        }
+    }
     var body: some View {
-        PaperCard(title: "NEW FOR YOU", right: added == nil ? "\(picks.count) SONGS" : "ADDED") {
+        PaperCard(title: "NEW FOR YOU", right: picks.isEmpty ? "ALL HANDLED" : "\(picks.count) SONGS") {
+            if picks.isEmpty {
+                Text("You've been through these. Ask again for a fresh batch.")
+                    .font(.system(size: 12)).foregroundStyle(CapTheme.paperInk.opacity(0.6))
+            }
             ForEach(picks.prefix(8)) { p in
                 VStack(alignment: .leading, spacing: 1) {
                     Text("\(p.title) — \(p.artist)").font(.system(size: 13, weight: .bold)).lineLimit(1)
@@ -425,7 +441,7 @@ struct DiscoveryCard: View {
             if let added {
                 Text("Added \(added) songs to your library and ✨ New for you.")
                     .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(CapTheme.paperInk.opacity(0.7)).padding(.top, 8)
-            } else {
+            } else if !picks.isEmpty {
                 HStack(spacing: 8) {
                     Button { Haptics.medium(); showDeck = true } label: {
                         Text("LISTEN & PICK").font(.system(size: 12, weight: .heavy, design: .monospaced)).tracking(1.5)
@@ -450,7 +466,7 @@ struct DiscoveryCard: View {
                 .padding(.top, 10)
             }
         }
-        .sheet(isPresented: $showDeck) { SwipeDeck(picks: picks) }
+        .sheet(isPresented: $showDeck, onDismiss: { version += 1 }) { SwipeDeck(incoming: picks) }
     }
 }
 

@@ -314,7 +314,7 @@ final class LibraryModel: ObservableObject {
 
     /// artist|title keys of everything already in the library — used to filter recommendations.
     func ownedKeys() -> Set<String> {
-        Set(tracks.map { "\($0.artist.lowercased())|\($0.title.lowercased())" })
+        Set(tracks.map { Discovery.key($0.artist, $0.title) })
     }
 
     func rediscoverList() -> [Track] {
