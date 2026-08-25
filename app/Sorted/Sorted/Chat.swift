@@ -134,11 +134,7 @@ final class ChatModel: ObservableObject {
         case "Find duplicates":
             if lib.report.duplicates == 0 { cap("Checked every song. No duplicates. Clean shelves.") }
             else {
-                var line = "Found \(lib.report.duplicates) duplicates. You didn't add them twice — Apple's catalog did."
-                if let space = lib.report.dupeStorageText {
-                    line += " \(lib.report.dupeDownloadedCount) of them are downloaded, taking about \(space)."
-                }
-                cap(line + " Same song, different releases:")
+                cap("Found \(lib.report.duplicates) duplicates — same song, different releases. You didn't add them twice; Apple's catalog did:")
                 messages.append(ChatMsg(kind: .dupes))
             }
             chips = Self.homeChips.filter { $0 != "Find duplicates" }
@@ -401,15 +397,6 @@ struct MsgView: View {
                         Text("\(d.albumA) + \(d.albumB)").font(.system(size: 10.5)).foregroundStyle(CapTheme.paperInk.opacity(0.55)).lineLimit(1)
                     }
                     .padding(.vertical, 3)
-                }
-                if let space = lib.report.dupeStorageText {
-                    HStack(spacing: 6) {
-                        Image(systemName: "internaldrive").font(.system(size: 10))
-                        Text("\(space) of downloads you could free")
-                            .font(.system(size: 11.5, weight: .heavy))
-                    }
-                    .foregroundStyle(CapTheme.red)
-                    .padding(.top, 8)
                 }
                 Text("Approve the plan and these land in one review playlist.")
                     .font(.system(size: 11)).foregroundStyle(CapTheme.paperInk.opacity(0.6)).padding(.top, 6)

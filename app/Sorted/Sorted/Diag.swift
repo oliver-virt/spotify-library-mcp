@@ -28,6 +28,23 @@ enum Diag {
         log("MPMediaLibrary.authorizationStatus = \(MPMediaLibrary.authorizationStatus().rawValue)")
         log("MPMediaQuery songs = \((MPMediaQuery.songs().items ?? []).count)")
 
+        // Can we read REAL file sizes for downloaded songs, or only estimate?
+        let all = MPMediaQuery.songs().items ?? []
+        let downloaded = all.filter { !$0.isCloudItem }
+        let withURL = downloaded.filter { $0.assetURL != nil }
+        var realBytes: Int64 = 0
+        for item in withURL.prefix(50) {
+            if let u = item.assetURL,
+               let v = try? u.resourceValues(forKeys: [.fileSizeKey]), let sz = v.fileSize {
+                realBytes += Int64(sz)
+            }
+        }
+        log("library total=\(all.count) downloaded=\(downloaded.count) withAssetURL=\(withURL.count)")
+        log("real bytes readable from first \(min(withURL.count,50)) downloaded: \(realBytes) (\(realBytes/1_048_576) MB)")
+        if let sample = downloaded.first {
+            log("sample downloaded: '\(sample.title ?? "?")' assetURL=\(sample.assetURL?.absoluteString ?? "nil") duration=\(Int(sample.playbackDuration))s")
+        }
+
         do {
             let sub = try await withDeadline(seconds: 8) { try await MusicSubscription.current }
             log("subscription: canPlayCatalog=\(sub.canPlayCatalogContent) canBecomeSub=\(sub.canBecomeSubscriber) hasCloudLibrary=\(sub.hasCloudLibraryEnabled)")

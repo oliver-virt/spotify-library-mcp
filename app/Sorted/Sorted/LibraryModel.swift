@@ -65,14 +65,6 @@ struct Report: Codable {
         let played = 1 - Double(neverPlayed) / Double(total)
         return Int((0.4 * filed + 0.3 * dedup + 0.3 * played) * 100)
     }
-    /// Storage the duplicate copies are using, at Apple Music's ~256 kbps AAC (≈32 KB/s).
-    /// Only downloaded copies occupy space; streamed ones are clutter, not bytes.
-    var dupeStorageText: String? {
-        guard dupeDownloadedCount > 0 else { return nil }
-        let mb = dupeSeconds * 32_000 / 1_048_576
-        return mb >= 1024 ? String(format: "~%.1f GB", mb / 1024) : String(format: "~%.0f MB", mb)
-    }
-
     /// Health if the user applies the plan: everything filed, duplicates handled.
     var projectedHealth: Int {
         guard total > 0 else { return 0 }
