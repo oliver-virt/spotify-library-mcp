@@ -53,6 +53,7 @@ final class Migration: ObservableObject {
         done = 0; matched = 0; addedToLibrary = 0; unmatched = []
 
         var doneKeys = Set(UserDefaults.standard.stringArray(forKey: "dacapo.mig.done") ?? [])
+        var idByKey = (UserDefaults.standard.dictionary(forKey: "dacapo.mig.ids") as? [String: String]) ?? [:]
         var songByKey: [String: Song] = [:]
         fatalError = nil
         phase = "Checking catalog access…"
@@ -99,8 +100,10 @@ final class Migration: ObservableObject {
                         do { try await MusicLibrary.shared.add(hit); addedToLibrary += 1 } catch {}
                     }
                     doneKeys.insert(k)
-                    if doneKeys.count % 25 == 0 {
+                    idByKey[k] = hit.id.rawValue
+                    if doneKeys.count % 10 == 0 {
                         UserDefaults.standard.set(Array(doneKeys), forKey: "dacapo.mig.done")
+                        UserDefaults.standard.set(idByKey, forKey: "dacapo.mig.ids")
                     }
                 } else {
                     unmatched.append("\(t.title) — \(t.artist)")
@@ -117,6 +120,26 @@ final class Migration: ObservableObject {
             try? await Task.sleep(for: .milliseconds(280))
         }
         UserDefaults.standard.set(Array(doneKeys), forKey: "dacapo.mig.done")
+        UserDefaults.standard.set(idByKey, forKey: "dacapo.mig.ids")
+
+        // Resolve songs matched in EARLIER runs (resume): fetch by stored catalog id, batched.
+        let missing = idByKey.filter { songByKey[$0.key] == nil }
+        if !missing.isEmpty {
+            phase = "Loading \(missing.count) songs matched earlier…"
+            let entries = Array(missing)
+            for chunk in stride(from: 0, to: entries.count, by: 25).map({ Array(entries[$0..<min($0+25, entries.count)]) }) {
+                let ids = chunk.map { MusicItemID($0.value) }
+                do {
+                    let songs = try await withDeadline(seconds: 15) {
+                        try await MusicCatalogResourceRequest<Song>(matching: \.id, memberOf: ids).response()
+                    }
+                    for (k, v) in chunk {
+                        if let song = songs.items.first(where: { $0.id.rawValue == v }) { songByKey[k] = song }
+                    }
+                } catch { }
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+        }
 
         // Rebuild playlists (skip empty). Idempotent-ish: same-name playlist by us gets refreshed by existing apply logic pattern; here: create fresh only if absent.
         phase = "Rebuilding playlists…"
