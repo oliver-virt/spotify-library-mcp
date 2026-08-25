@@ -30,9 +30,11 @@ final class Discovery: ObservableObject {
         var seen = Set<String>()
         let handled = Self.handled
 
+        let blocked = Taste.blockedArtists
         func consider(_ s: Song, _ reason: String) {
             let key = Self.key(s.artistName, s.title)
-            guard !owned.contains(key), !seen.contains(key), !handled.contains(key) else { return }
+            guard !owned.contains(key), !seen.contains(key), !handled.contains(key),
+                  !blocked.contains(s.artistName.lowercased()) else { return }
             seen.insert(key)
             found.append(NewSong(id: s.id.rawValue, title: s.title, artist: s.artistName, reason: reason, song: s))
         }
@@ -120,7 +122,10 @@ final class Discovery: ObservableObject {
                 }
             } catch { }
         }
+        // Rank by what the swipes have taught us; keep a little randomness so it
+        // doesn't collapse into one genre.
         found.shuffle()
+        found.sort { Taste.score($0.song) > Taste.score($1.song) }
         phase = ""
     }
 

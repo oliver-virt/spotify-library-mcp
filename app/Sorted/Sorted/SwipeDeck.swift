@@ -58,14 +58,10 @@ struct SwipeDeck: View {
     @Environment(\.dismiss) var dismiss
     let incoming: [NewSong]
     @StateObject private var player = PreviewPlayer()
-    private var picks: [NewSong] {
-        let handled = Discovery.handled
-        let owned = lib.ownedKeys()
-        return incoming.filter {
-            let k = Discovery.key($0.artist, $0.title)
-            return !handled.contains(k) && !owned.contains(k)
-        }
-    }
+    /// Snapshot once at open. Recomputing mid-session shifts the index under us
+    /// (a swipe saves to storage → list shrinks → next card gets skipped).
+    @State private var picks: [NewSong] = []
+    @State private var deciding = false
     @State private var index = 0
     @State private var offset: CGSize = .zero
     @State private var kept: [NewSong] = []
@@ -129,7 +125,17 @@ struct SwipeDeck: View {
                 }
             }
         }
-        .onAppear { playCurrent() }
+        .onAppear {
+            if picks.isEmpty {
+                let handled = Discovery.handled
+                let owned = lib.ownedKeys()
+                picks = incoming.filter {
+                    let k = Discovery.key($0.artist, $0.title)
+                    return !handled.contains(k) && !owned.contains(k)
+                }
+            }
+            playCurrent()
+        }
         .onDisappear { player.stop(); Task { await lib.scan() } }
     }
 
@@ -253,8 +259,10 @@ struct SwipeDeck: View {
     }
 
     func decide(keep: Bool) {
-        guard let song = current else { return }
+        guard !deciding, let song = current else { return }
+        deciding = true
         if keep { Haptics.medium() } else { Haptics.light() }
+        Taste.record(song, liked: keep)
         if keep {
             kept.append(song)
             // add straight away — the button says ADD TO LIBRARY, so it should add
@@ -270,6 +278,7 @@ struct SwipeDeck: View {
             try? await Task.sleep(for: .milliseconds(200))
             index += 1
             offset = .zero
+            deciding = false
             if current == nil { Haptics.success() }
             playCurrent()
         }
