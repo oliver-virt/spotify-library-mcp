@@ -13,6 +13,8 @@ struct Track: Identifiable, Hashable {
     let added: Date?
     let lastPlayed: Date?
     let year: Int
+    let seconds: Double
+    let downloaded: Bool
     let song: Song
     var key: String { "\(artist.lowercased())|\(Self.normTitle(title))" }
     static func normTitle(_ t: String) -> String {
@@ -52,6 +54,8 @@ struct Report: Codable {
     var totalMinutes = 0
     var scannedAt = Date.distantPast
     var dupeExamples: [DupeExample] = []
+    var dupeDownloadedCount = 0
+    var dupeSeconds: Double = 0
 
     /// 0–100: how organised the library is. Filed 40%, dedup 30%, actually-played 30%.
     var health: Int {
@@ -61,6 +65,14 @@ struct Report: Codable {
         let played = 1 - Double(neverPlayed) / Double(total)
         return Int((0.4 * filed + 0.3 * dedup + 0.3 * played) * 100)
     }
+    /// Storage the duplicate copies are using, at Apple Music's ~256 kbps AAC (≈32 KB/s).
+    /// Only downloaded copies occupy space; streamed ones are clutter, not bytes.
+    var dupeStorageText: String? {
+        guard dupeDownloadedCount > 0 else { return nil }
+        let mb = dupeSeconds * 32_000 / 1_048_576
+        return mb >= 1024 ? String(format: "~%.1f GB", mb / 1024) : String(format: "~%.0f MB", mb)
+    }
+
     /// Health if the user applies the plan: everything filed, duplicates handled.
     var projectedHealth: Int {
         guard total > 0 else { return 0 }
@@ -173,6 +185,8 @@ final class LibraryModel: ObservableObject {
                         lastPlayed: m?.lastPlayedDate ?? s.lastPlayedDate,
                         year: (m?.releaseDate).map { Calendar.current.component(.year, from: $0) }
                               ?? (s.releaseDate).map { Calendar.current.component(.year, from: $0) } ?? 0,
+                        seconds: m?.playbackDuration ?? s.duration ?? 0,
+                        downloaded: m.map { !$0.isCloudItem } ?? false,
                         song: s))
                 }
                 scanStatus = "Reading your library… \(collected.count) songs"
@@ -225,6 +239,7 @@ final class LibraryModel: ObservableObject {
             if let a = t.added, a < yearAgo, t.playCount <= 1 { r.forgotten += 1 }
             if let first = seen[t.key] {
                 r.duplicates += 1
+                if t.downloaded { r.dupeDownloadedCount += 1; r.dupeSeconds += t.seconds }
                 if examples.count < 30 {
                     examples.append(DupeExample(title: t.title, artist: t.artist,
                         albumA: first.album.isEmpty ? "your library" : first.album,
