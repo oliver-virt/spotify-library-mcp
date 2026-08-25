@@ -313,6 +313,13 @@ final class LibraryModel: ObservableObject {
     }
 
     /// artist|title keys of everything already in the library — used to filter recommendations.
+    /// Artists ranked by how much of them the user owns — the seed for discovery.
+    func topOwnedArtists() -> [String] {
+        var counts: [String: Int] = [:]
+        for t in tracks { counts[t.artist.split(separator: ",").first.map(String.init) ?? t.artist, default: 0] += 1 }
+        return counts.sorted { $0.value > $1.value }.map(\.key)
+    }
+
     func ownedKeys() -> Set<String> {
         Set(tracks.map { Discovery.key($0.artist, $0.title) })
     }

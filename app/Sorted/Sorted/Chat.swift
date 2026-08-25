@@ -116,7 +116,7 @@ final class ChatModel: ObservableObject {
             thinking = true; thinkingLabel = "Checking what you already own…"
             await lib.scan()          // never recommend against a stale library
             thinkingLabel = "Reading your recommendations…"
-            await lib.discovery.run(owned: lib.ownedKeys())
+            await lib.discovery.run(owned: lib.ownedKeys(), topArtists: lib.topOwnedArtists())
             thinking = false; thinkingLabel = ""
             if let e = lib.discovery.errorText { cap(e); chips = Self.homeChips; return }
             let picks = lib.discovery.found

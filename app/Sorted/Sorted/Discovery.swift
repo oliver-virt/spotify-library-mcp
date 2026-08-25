@@ -17,63 +17,99 @@ final class Discovery: ObservableObject {
     @Published var found: [NewSong] = []
     @Published var errorText: String?
 
-    func run(owned: Set<String>) async {
+    /// Five sources, best first:
+    ///  1. New releases from artists you actually own
+    ///  2. Songs by those artists you somehow don't have
+    ///  3. Top songs from similar artists
+    ///  4. Apple's personal recommendations (library-recycled sections last)
+    ///  5. Charts, only if still thin
+    func run(owned: Set<String>, topArtists: [String]) async {
         guard !running else { return }
         running = true; defer { running = false }
         errorText = nil; found = []
         var seen = Set<String>()
-        let passed = Set(UserDefaults.standard.stringArray(forKey: "dacapo.passed") ?? [])
-        let alreadyAdded = Set(UserDefaults.standard.stringArray(forKey: "dacapo.added") ?? [])
+        let handled = Self.handled
+
         func consider(_ s: Song, _ reason: String) {
             let key = Self.key(s.artistName, s.title)
-            guard !owned.contains(key), !seen.contains(key),
-                  !passed.contains(key), !alreadyAdded.contains(key) else { return }
+            guard !owned.contains(key), !seen.contains(key), !handled.contains(key) else { return }
             seen.insert(key)
             found.append(NewSong(id: s.id.rawValue, title: s.title, artist: s.artistName, reason: reason, song: s))
         }
-        // 1. Apple's personal recommendations for this user
-        phase = "Reading your recommendations…"
-        do {
-            let res = try await withDeadline(seconds: 20) {
-                try await MusicPersonalRecommendationsRequest().response()
-            }
-            // Apple's "Made for You" / "Heavy Rotation" sections are rebuilt from the
-            // user's OWN library — useless for discovery. Prefer sections that surface
-            // things they haven't heard.
-            let recycled = ["made for you", "heavy rotation", "replay", "recently played",
-                            "favorites", "top songs", "your library", "listen again"]
-            let ranked = res.recommendations.sorted { a, b in
-                let ra = recycled.contains { (a.title ?? "").lowercased().contains($0) }
-                let rb = recycled.contains { (b.title ?? "").lowercased().contains($0) }
-                return !ra && rb
-            }
-            for rec in ranked {
-                let label = rec.title ?? "Recommended for you"
-                if recycled.contains(where: { label.lowercased().contains($0) }) && found.count >= 10 { continue }
-                phase = "Going through \(label.lowercased())…"
-                for item in rec.items.prefix(12) {
-                    switch item {
-                    case .album(let a):
-                        if let full = try? await a.with(.tracks), let t = full.tracks?.prefix(2) {
-                            for track in t { if case .song(let s) = track { consider(s, label) } }
-                        }
-                    case .playlist(let p):
-                        if let full = try? await p.with(.tracks), let t = full.tracks?.prefix(3) {
-                            for track in t { if case .song(let s) = track { consider(s, label) } }
-                        }
-                    case .station: break
-                    @unknown default: break
-                    }
-                    if found.count >= 30 { break }
-                }
-                if !found.isEmpty { phase = "\(found.count) new so far…" }
-                if found.count >= 30 { break }
-            }
-        } catch { errorText = "Couldn't read recommendations: \(error.localizedDescription)" }
 
-        // 2. Top up from charts if thin
-        if found.count < 20 {
-            phase = "Checking what's new and big right now…"
+        // --- 1 & 2 & 3: build out from the artists in the library ---
+        for name in topArtists.prefix(12) {
+            if found.count >= 40 { break }
+            phase = "Looking into \(name)…"
+            guard let artist = try? await withDeadline(seconds: 10, {
+                var r = MusicCatalogSearchRequest(term: name, types: [Artist.self])
+                r.limit = 1
+                return try await r.response().artists.first
+            }) ?? nil else { continue }
+
+            // new release they may have missed
+            if let full = try? await artist.with([.latestRelease]),
+               let album = full.latestRelease,
+               let tracks = try? await album.with(.tracks) {
+                for t in (tracks.tracks ?? []).prefix(3) {
+                    if case .song(let song) = t { consider(song, "New from \(name)") }
+                }
+            }
+            // songs by an artist they own but don't have
+            if let full = try? await artist.with([.topSongs]) {
+                for song in (full.topSongs ?? []).prefix(4) { consider(song, "You own \(name) — not this one") }
+            }
+            // neighbours
+            if let full = try? await artist.with([.similarArtists]) {
+                for similar in (full.similarArtists ?? []).prefix(2) {
+                    if let sf = try? await similar.with([.topSongs]) {
+                        for song in (sf.topSongs ?? []).prefix(2) { consider(song, "Because you like \(name)") }
+                    }
+                }
+            }
+            try? await Task.sleep(for: .milliseconds(120))
+        }
+
+        // --- 4: Apple's own recommendations, library-recycled sections last ---
+        if found.count < 30 {
+            phase = "Reading your recommendations…"
+            do {
+                let res = try await withDeadline(seconds: 20) {
+                    try await MusicPersonalRecommendationsRequest().response()
+                }
+                let recycled = ["made for you", "heavy rotation", "replay", "recently played",
+                                "favorites", "top songs", "listen again"]
+                let ranked = res.recommendations.sorted { a, b in
+                    let ra = recycled.contains { (a.title ?? "").lowercased().contains($0) }
+                    let rb = recycled.contains { (b.title ?? "").lowercased().contains($0) }
+                    return !ra && rb
+                }
+                for rec in ranked {
+                    let label = rec.title ?? "Recommended for you"
+                    if recycled.contains(where: { label.lowercased().contains($0) }) { continue }
+                    phase = "Going through \(label.lowercased())…"
+                    for item in rec.items.prefix(10) {
+                        switch item {
+                        case .album(let a):
+                            if let full = try? await a.with(.tracks) {
+                                for t in (full.tracks ?? []).prefix(2) { if case .song(let s) = t { consider(s, label) } }
+                            }
+                        case .playlist(let p):
+                            if let full = try? await p.with(.tracks) {
+                                for t in (full.tracks ?? []).prefix(3) { if case .song(let s) = t { consider(s, label) } }
+                            }
+                        default: break
+                        }
+                        if found.count >= 40 { break }
+                    }
+                    if found.count >= 40 { break }
+                }
+            } catch { errorText = "Couldn't read recommendations: \(error.localizedDescription)" }
+        }
+
+        // --- 5: charts as a last resort ---
+        if found.count < 12 {
+            phase = "Checking what's big right now…"
             do {
                 var req = MusicCatalogChartsRequest(types: [Song.self])
                 req.limit = 40
@@ -84,12 +120,10 @@ final class Discovery: ObservableObject {
                 }
             } catch { }
         }
+        found.shuffle()
         phase = ""
     }
 
-    /// Same fuzzy key the duplicate finder uses: primary artist + title minus
-    /// "(Remastered)", "- Live", "(Radio Edit)" etc. Prevents adding another
-    /// pressing of a song the user already owns.
     static func key(_ artist: String, _ title: String) -> String {
         let primary = String(artist.split(separator: ",").first ?? "")
             .lowercased().trimmingCharacters(in: .whitespaces)
