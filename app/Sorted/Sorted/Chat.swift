@@ -36,6 +36,7 @@ final class ChatModel: ObservableObject {
     @Published var thinking = false
     @Published var thinkingLabel = ""
     @Published var chips: [String] = ChatModel.homeChips
+    @Published var wantsPicker = false
     static var homeChips: [String] {
         var c = ["Sort my library", "Find me something new", "Find duplicates", "What did I forget?", "How do I listen?"]
         if Migration.exportAvailable && !UserDefaults.standard.bool(forKey: "dacapo.migrationDone") {
@@ -88,7 +89,7 @@ final class ChatModel: ObservableObject {
     }
 
     func run(_ intent: String, lib: LibraryModel) async {
-        let known = Self.homeChips + ["Make it a playlist", "Add mood playlists"]
+        let known = Self.homeChips + ["Make it a playlist", "Add mood playlists", "__runDiscovery"]
         guard known.contains(intent) else { await freeText(intent, lib: lib); return }
         messages.append(ChatMsg(kind: .user(intent.lowercased())))
         thinking = true
@@ -112,11 +113,14 @@ final class ChatModel: ObservableObject {
             cap("Fresh numbers are in. Ask me anything — this is a real library now.")
             chips = ["How do I listen?", "Sort my library"]
         case "Find me something new":
-            cap("Let me see what Apple has for you that you don't already own.")
+            wantsPicker = true
+            return
+        case "__runDiscovery":
+            cap("Let me see what you don't already own.")
             thinking = true; thinkingLabel = "Checking what you already own…"
             await lib.scan()          // never recommend against a stale library
             thinkingLabel = "Reading your recommendations…"
-            await lib.discovery.run(owned: lib.ownedKeys(), topArtists: lib.topOwnedArtists())
+            await lib.discovery.run(owned: lib.ownedKeys(), topArtists: lib.topOwnedArtists(), prefs: .load())
             thinking = false; thinkingLabel = ""
             if let e = lib.discovery.errorText { cap(e); chips = Self.homeChips; return }
             let picks = lib.discovery.found
@@ -204,6 +208,9 @@ struct ChatView: View {
         }
         .background(CapTheme.bg)
         .sheet(isPresented: $showPaywall) { PaywallView { Task { await applyPlan() } } }
+        .sheet(isPresented: $chat.wantsPicker) {
+            DiscoveryPicker { _ in Task { await chat.run("__runDiscovery", lib: lib) } }
+        }
         .onChange(of: router.pending) { _, new in
             if let intent = new { router.pending = nil; Task { await chat.run(intent, lib: lib) } }
         }

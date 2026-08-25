@@ -23,7 +23,7 @@ final class Discovery: ObservableObject {
     ///  3. Top songs from similar artists
     ///  4. Apple's personal recommendations (library-recycled sections last)
     ///  5. Charts, only if still thin
-    func run(owned: Set<String>, topArtists: [String]) async {
+    func run(owned: Set<String>, topArtists: [String], prefs: DiscoveryPrefs = .load()) async {
         guard !running else { return }
         running = true; defer { running = false }
         errorText = nil; found = []
@@ -31,16 +31,22 @@ final class Discovery: ObservableObject {
         let handled = Self.handled
 
         let blocked = Taste.blockedArtists
+        let wanted = Set(prefs.genres.map { $0.lowercased() })
         func consider(_ s: Song, _ reason: String) {
             let key = Self.key(s.artistName, s.title)
             guard !owned.contains(key), !seen.contains(key), !handled.contains(key),
                   !blocked.contains(s.artistName.lowercased()) else { return }
+            if !wanted.isEmpty {
+                let gs = Set(s.genreNames.map { $0.lowercased() })
+                guard !gs.isDisjoint(with: wanted) else { return }
+            }
             seen.insert(key)
             found.append(NewSong(id: s.id.rawValue, title: s.title, artist: s.artistName, reason: reason, song: s))
         }
 
         // --- 1 & 2 & 3: build out from the artists in the library ---
-        for name in topArtists.prefix(12) {
+        let needArtistWork = prefs.newFromArtists || prefs.deepCuts || prefs.similarArtists
+        for name in (needArtistWork ? Array(topArtists.prefix(12)) : []) {
             if found.count >= 40 { break }
             phase = "Looking into \(name)…"
             guard let artist = try? await withDeadline(seconds: 10, {
@@ -50,7 +56,7 @@ final class Discovery: ObservableObject {
             }) ?? nil else { continue }
 
             // new release they may have missed
-            if let full = try? await artist.with([.latestRelease]),
+            if prefs.newFromArtists, let full = try? await artist.with([.latestRelease]),
                let album = full.latestRelease,
                let tracks = try? await album.with(.tracks) {
                 for t in (tracks.tracks ?? []).prefix(3) {
@@ -58,11 +64,11 @@ final class Discovery: ObservableObject {
                 }
             }
             // songs by an artist they own but don't have
-            if let full = try? await artist.with([.topSongs]) {
+            if prefs.deepCuts, let full = try? await artist.with([.topSongs]) {
                 for song in (full.topSongs ?? []).prefix(4) { consider(song, "You own \(name) — not this one") }
             }
             // neighbours
-            if let full = try? await artist.with([.similarArtists]) {
+            if prefs.similarArtists, let full = try? await artist.with([.similarArtists]) {
                 for similar in (full.similarArtists ?? []).prefix(2) {
                     if let sf = try? await similar.with([.topSongs]) {
                         for song in (sf.topSongs ?? []).prefix(2) { consider(song, "Because you like \(name)") }
@@ -73,7 +79,7 @@ final class Discovery: ObservableObject {
         }
 
         // --- 4: Apple's own recommendations, library-recycled sections last ---
-        if found.count < 30 {
+        if prefs.appleRecs, found.count < 30 {
             phase = "Reading your recommendations…"
             do {
                 let res = try await withDeadline(seconds: 20) {
@@ -110,7 +116,7 @@ final class Discovery: ObservableObject {
         }
 
         // --- 5: charts as a last resort ---
-        if found.count < 12 {
+        if prefs.charts || found.count < 8 {
             phase = "Checking what's big right now…"
             do {
                 var req = MusicCatalogChartsRequest(types: [Song.self])
