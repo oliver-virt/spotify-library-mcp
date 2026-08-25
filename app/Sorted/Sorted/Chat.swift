@@ -34,6 +34,7 @@ struct ChatMsg: Identifiable {
 final class ChatModel: ObservableObject {
     @Published var messages: [ChatMsg] = []
     @Published var thinking = false
+    @Published var thinkingLabel = ""
     @Published var chips: [String] = ChatModel.homeChips
     static var homeChips: [String] {
         var c = ["Sort my library", "Find me something new", "Find duplicates", "What did I forget?", "How do I listen?"]
@@ -107,11 +108,14 @@ final class ChatModel: ObservableObject {
             }
             cap("Done. Matched \(m.matched) of \(m.total) songs, added \(m.addedToLibrary) to your library, rebuilt \(m.playlistsBuilt) playlists.\(m.unmatched.isEmpty ? "" : " \(m.unmatched.count) didn't exist on Apple Music — they're listed in The Files.") Now rescanning…")
             await lib.scan()
+            thinking = false; thinkingLabel = ""
             cap("Fresh numbers are in. Ask me anything — this is a real library now.")
             chips = ["How do I listen?", "Sort my library"]
         case "Find me something new":
             cap("Let me see what Apple has for you that you don't already own.")
+            thinking = true; thinkingLabel = "Reading your recommendations…"
             await lib.discovery.run(owned: lib.ownedKeys())
+            thinking = false; thinkingLabel = ""
             if let e = lib.discovery.errorText { cap(e); chips = Self.homeChips; return }
             let picks = lib.discovery.found
             if picks.isEmpty { cap("Nothing new worth your time right now — you already own most of what it suggested.") }
@@ -153,7 +157,9 @@ final class ChatModel: ObservableObject {
         case "Add mood playlists":
             if MoodClassifier.isAvailable {
                 cap("Give me a minute with your artists…")
+                thinking = true; thinkingLabel = "Listening to what you like…"
                 await lib.addMoodBuckets()
+                thinking = false; thinkingLabel = ""
                 cap("Added mood playlists to the plan above. Flip any off before you approve.")
             } else { cap("Mood sorting needs Apple Intelligence on this phone. The rest of the plan works without it.") }
             chips = ["How do I listen?"]
@@ -179,11 +185,8 @@ struct ChatView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         if chat.messages.isEmpty { emptyState }
                         ForEach(chat.messages) { msg in MsgView(msg: msg, showPaywall: $showPaywall) }
-                        if chat.thinking {
-                            HStack(spacing: 8) {
-                                capAvatar(28)
-                                ProgressView().tint(CapTheme.mute)
-                            }
+                        if chat.thinking || lib.discovery.running {
+                            WorkingBubble(discovery: lib.discovery, fallback: chat.thinkingLabel)
                         }
                         Color.clear.frame(height: 1).id("end")
                     }
@@ -283,6 +286,43 @@ struct ChatView: View {
         if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
             AppStore.requestReview(in: scene)
         }
+    }
+}
+
+/// "Cap is working" — animated dots plus whatever he's actually doing right now.
+struct WorkingBubble: View {
+    @ObservedObject var discovery: Discovery
+    let fallback: String
+    @State private var phase = 0
+    private let timer = Timer.publish(every: 0.35, on: .main, in: .common).autoconnect()
+
+    private var label: String {
+        if discovery.running && !discovery.phase.isEmpty { return discovery.phase }
+        return fallback
+    }
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            capAvatar(28)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 5) {
+                    ForEach(0..<3) { i in
+                        Circle().fill(CapTheme.mute)
+                            .frame(width: 7, height: 7)
+                            .opacity(phase == i ? 1 : 0.3)
+                            .scaleEffect(phase == i ? 1.15 : 1)
+                            .animation(.easeInOut(duration: 0.3), value: phase)
+                    }
+                }
+                if !label.isEmpty {
+                    Text(label).font(.system(size: 12)).foregroundStyle(CapTheme.mute)
+                        .transition(.opacity)
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .background(UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 4, bottomTrailingRadius: 16, topTrailingRadius: 16).fill(CapTheme.bubble))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onReceive(timer) { _ in phase = (phase + 1) % 3 }
     }
 }
 

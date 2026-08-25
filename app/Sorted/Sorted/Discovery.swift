@@ -39,6 +39,7 @@ final class Discovery: ObservableObject {
             }
             for rec in res.recommendations {
                 let label = rec.title ?? "Recommended for you"
+                phase = "Going through \(label.lowercased())…"
                 for item in rec.items.prefix(12) {
                     switch item {
                     case .album(let a):
@@ -54,6 +55,7 @@ final class Discovery: ObservableObject {
                     }
                     if found.count >= 30 { break }
                 }
+                if !found.isEmpty { phase = "\(found.count) new so far…" }
                 if found.count >= 30 { break }
             }
         } catch { errorText = "Couldn't read recommendations: \(error.localizedDescription)" }
